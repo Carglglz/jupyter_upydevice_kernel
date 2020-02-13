@@ -11,6 +11,14 @@ MicroPython
 -----------
 Tested on MicroPython v1.11 and v1.12
 
+Boards
+-------
+Tested on:
+  - pyboard V1.1/Lite
+  - ESP32
+  - CIRCUITPLAYGROUND EXPRESS
+
+
 Background
 ----------
 
@@ -23,7 +31,8 @@ upydevice latest classes ``SERIAL_DEVICE`` and ``WS_DEVICE`` that allows both se
 websocket (WebREPL) connections.
 The kernel has also been reworked to support autocompletions on tab which works
 for MicroPython, iPython and %cell magic commands.
-
+Some %cell magic commands were dropped and some new were added e.g: ``%is_reachable``
+``%meminfo`` ``%whoami`` ``%gccollect`` ``%sync`` ``%logdata`` ``%devplot``
 
 Installation
 ------------
@@ -172,12 +181,28 @@ are available, or to see more information about each command do:
       To sync a variable/output data structure of the device into iPython
       if no var name provided it stores the output into _
 
+    %logdata [-fs FS] [-tm TM] [-u U [U ...]] [-s] v [v ...]
+      To log a output data of the device into iPython
+      data is stored in 'devlog'
+
+     positional arguments:
+        v             Name of variables
+     optional arguments:
+        -fs FS        Sampling frequency in Hz
+        -tm TM        Sampling timeout in ms
+        -u U [U ...]  Unit of variables
+        -s            Silent mode
+
+    %devplot
+      To plot devlog data
+
 The communications interface to the micropython module is based on `upydevice
 <https://github.com/Carglglz/upydevice>`_ new classes ``SERIAL_DEVICE`` and ``WS_DEVICE``
 
 
 This is also the core library of `upydev
-<https://github.com/Carglglz/upydev>`_ The SERIAL SHELL-REPL can be used simultaneously
+<https://github.com/Carglglz/upydev>`_ .
+The SERIAL SHELL-REPL can be used simultaneously
 with the upydevice Kernel since the serial connection is non-blocking.
 
 %local
@@ -225,6 +250,7 @@ local cell
 -----
 Any variable/output of the device can be stored in local iPython easily.
 If a var name is not provided the output will be stored locally in _ , e.g. :
+
 ::
 
     %sync
@@ -268,4 +294,76 @@ same name e.g. :
 
 
 
-This works for any type of output (bytes/bytearrays/arrays/ints/floats/strings/lists/dicts etc..)
+This works for any type of output (bytes/bytearrays/arrays/ints/floats/strings/lists/dicts)
+
+%logdata
+---------
+This allows to log any data from device stdout as long as the data is in tuple or list format.
+The data will be stored in local iPython in 'devlog' e.g. :
+
+Logging accelerometer data from an IMU sensor.
+
+*micropython cell*
+
+::
+
+    import time
+    from machine import I2C, Pin
+    from lsm9ds1 import LSM9DS1
+    i2c = I2C(scl=Pin(22), sda=Pin(23))
+    imu = LSM9DS1(i2c)
+
+    def stream_accel(n, tm):
+      for i in range(n):
+          print(imu.read_accel())
+          time.sleep_ms(tm)
+
+
+*%logdata cell*
+
+::
+
+    %logdata 'x' 'y' 'z' -tm 10 -u 'g(m/s^2)'
+    stream_accel(400, 10)
+
+::
+
+    vars:['x', 'y', 'z'], fs:None Hz, tm:10 ms, u: ['g(m/s^2)'], silent: False
+    ------------------------------
+    (-0.6851807, 0.6947632, 0.3374634)
+    (-0.6889038, 0.6830444, 0.3411255)
+    (-0.7027588, 0.6877441, 0.3455811)
+    (-0.7280884, 0.7080688, 0.3401489)
+    ....
+    (-0.734375, 0.7600098, -0.0004272461)
+    (-0.7210693, 0.7717896, -0.05194092)
+    (-0.7344971, 0.7575684, 0.006652832)
+
+
+Now data is stored in devlog
+
+::
+
+    %local
+    devlog
+
+::
+
+    {'x': [-0.6851807, ..., -0.7344971], 'y': [0.6947632, ..., 0.7575684],
+     'z': [-0.7280884, ..., 0.006652832], 'vars': ['x', 'y', 'z']
+     'fs': 100, 'ts': [0.0, ... , 4.0]}
+
+
+%devplot
+--------
+This allows to plot *devlog* data, just do:
+
+::
+
+    %devplot
+
+
+
+
+.. image:: acc-plot.png
+    :width: 40pt

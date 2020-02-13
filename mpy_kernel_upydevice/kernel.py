@@ -31,6 +31,13 @@ ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help
 ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
 ap_websocketconnect.add_argument("--password", type=str)
 
+ap_logdata = argparse.ArgumentParser(prog="%logdata", add_help=False)
+ap_logdata.add_argument('v', type=str, nargs="+", help='Name of variables')
+ap_logdata.add_argument("-fs", type=int, help='Sampling frequency in Hz')
+ap_logdata.add_argument("-tm", type=int, help='Sampling timeout in ms')
+ap_logdata.add_argument("-u", type=str, nargs="+", help='Unit of variables')
+ap_logdata.add_argument("-s", default=False, help='Silent mode', action='store_true')
+
 # ap_writebytes = argparse.ArgumentParser(prog="%writebytes", add_help=False)
 # ap_writebytes.add_argument('-b', help='binary', action='store_true')
 # ap_writebytes.add_argument('stringtosend', type=str)
@@ -72,9 +79,11 @@ class MicroPythonKernel(IPythonKernel):
         self.magic_kw = ['%disconnect', '%serialconnect', '%websocketconnect',
                          '%rebootdevice', '%is_reachable', '%lsmagic',
                          '%meminfo', '%whoami', '%gccollect', '%local',
-                         '%sync']
+                         '%sync', '%logdata', '%devplot']
         self.block_kw = ['if ', 'else:', 'def ', 'while ', 'for ', 'elif ', ':',
                          'try:', 'except ']
+
+        self.datalog_args = None
 
         try:
             self.shell.user_global_ns['remote'] = self.remote
@@ -91,6 +100,15 @@ class MicroPythonKernel(IPythonKernel):
         Raised when a %sync cell is hit to tell kernel to forward device output to ipython
         """
 
+    class logdataLocalCell(Exception):
+        """
+        Raised when a %logdata cell is hit to tell kernel to forward device output data stream to ipython and store it in 'devlog'
+        """
+
+    class devplotLocalCell(Exception):
+        """
+        Raised when a %devplot cell is hit to tell kernel to plot devlog in ipython
+        """
 
     def interpretpercentline(self, percentline, cellcontents):
         percentstringargs = shlex.split(percentline)
@@ -173,6 +191,11 @@ class MicroPythonKernel(IPythonKernel):
             self.sres("%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
             self.sres("%local\n    To run the cell contents in local iPython\n\n")
             self.sres("%sync\n    To sync a variable/output data structure of the device into iPython \n    if no var name provided it stores the output into _\n\n")
+            self.sres(re.sub("usage: ", "", ap_logdata.format_usage()))
+            self.sres("    To log a output data of the device into iPython \n    data is stored in 'devlog'\n\n")
+            self.sres("   {}\n   {}\n".format(ap_logdata.format_help().split('\n\n')[1].replace('\n', '\n    '),
+                                         ap_logdata.format_help().split('\n\n')[2].replace('\n', '\n    ')))
+            self.sres("%devplot\n    To plot devlog data\n\n")
             return None
 
         if percentcommand == "%disconnect":
@@ -196,6 +219,21 @@ class MicroPythonKernel(IPythonKernel):
         if percentcommand == "%sync":
             # self.dev.close_wconn()
             raise self.syncLocalCell
+
+        if percentcommand == ap_logdata.prog:
+            # self.dev.close_wconn()
+            apargs = parseap(ap_logdata, percentstringargs[1:])
+            self.sres('vars:{}, fs:{} Hz, tm:{} ms, u: {}, silent: {}\n'.format(apargs.v, apargs.fs, apargs.tm, apargs.u, apargs.s))
+            self.sres("{}\n".format('-'*30))
+            self.datalog_args = {'vars': apargs.v, 'fs': apargs.fs,
+                                 'tm': apargs.tm, 'u': apargs.u,
+                                 'silent':apargs.s}
+            raise self.logdataLocalCell
+            # return None
+
+        if percentcommand == "%devplot":
+            # self.dev.close_wconn()
+            raise self.devplotLocalCell
 
         if percentcommand == "%is_reachable":
             # self.dev.close_wconn()
@@ -378,6 +416,46 @@ class MicroPythonKernel(IPythonKernel):
                                                              user_expressions=user_expressions,
                                                              allow_stdin=allow_stdin)
 
+        except self.logdataLocalCell:
+            code = '\n'.join(code.split('\n')[1:])
+            # self.dev.wr_cmd(code, silent=True)
+            self.dev.paste_buff(code)
+            if not self.datalog_args['silent']:
+                self.dev.wr_cmd('\x04', follow=True, pipe=self.sres, multiline=True, dlog=True)
+                # self.dev.wr_cmd('\x04', silent=True, follow=True, pipe=None, multiline=True, dlog=True)
+            else:
+                # self.sres("{}\n".format(self.datalog_args['silent']))
+                self.dev.wr_cmd('\x04', silent=True, follow=True, pipe=None, multiline=True, dlog=True)
+            self.dev.get_datalog(dvars=self.datalog_args['vars'], fs=self.datalog_args['fs'],
+                                 time_out=self.datalog_args['tm'], units=self.datalog_args['u'])
+
+            code = '{} = {}'.format('devlog', self.dev.datalog)
+            return super(MicroPythonKernel, self).do_execute(code=code, silent=silent,
+                                                             store_history=store_history,
+                                                             user_expressions=user_expressions,
+                                                             allow_stdin=allow_stdin)
+
+        except self.devplotLocalCell:
+            if self.dev.datalog is not None and self.dev.datalog != []:
+                importmatplotlib = "import matplotlib.pyplot as plt"
+                code = """
+                fig, ax1 = plt.subplots(figsize=(10, 4), dpi=128)
+                plt.grid(which='minor', linestyle='dotted')
+                ax1.grid(linestyle='dotted')
+                ax1.set_xlabel('Time(s)')
+                ax1.set_ylabel(devlog['u'])
+                for key in devlog['vars']:
+                    plt.plot(devlog['ts'], devlog[key],linewidth=1, label=key)
+                    plt.legend(loc=1)
+                plt.show()"""
+                show_plot = super(MicroPythonKernel, self).do_execute(code=importmatplotlib, silent=silent,
+                                                                 store_history=store_history,
+                                                                 user_expressions=user_expressions,
+                                                                 allow_stdin=allow_stdin)
+                return super(MicroPythonKernel, self).do_execute(code=code, silent=silent,
+                                                                 store_history=store_history,
+                                                                 user_expressions=user_expressions,
+                                                                 allow_stdin=allow_stdin)
         except Exception as e:
             self.sres("\n\n*** OSError *** \n")
             self.sres("\n\n {} \n".format(str(e)))
