@@ -90,3 +90,4 @@ ENV/
 .ropeproject
 .mpy_kernel
 .mpy_kernel/kernelmix.py
+.DS_Store

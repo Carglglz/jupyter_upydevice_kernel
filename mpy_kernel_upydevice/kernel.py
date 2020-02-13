@@ -19,7 +19,6 @@ serialtimeoutcount = 10
 # use of argparse for handling the %commands in the cells
 
 ap_serialconnect = argparse.ArgumentParser(prog="%serialconnect", add_help=False)
-ap_serialconnect.add_argument('--raw', help='Just open connection', action='store_true')
 ap_serialconnect.add_argument('portname', type=str, default=0, nargs="?")
 ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
 
@@ -29,7 +28,6 @@ ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
 # ap_socketconnect.add_argument('portnumber', type=int)
 
 ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help=False)
-ap_websocketconnect.add_argument('--raw', help='Just open connection', action='store_true')
 ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
 ap_websocketconnect.add_argument("--password", type=str)
 
@@ -173,6 +171,8 @@ class MicroPythonKernel(IPythonKernel):
             self.sres("%meminfo\n    Shows RAM size/used/free/use% info\n\n")
             self.sres("%whoami\n    Shows Device name, port, id, and system info\n\n")
             self.sres("%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
+            self.sres("%local\n    To run the cell contents in local iPython\n\n")
+            self.sres("%sync\n    To sync a variable/output data structure of the device into iPython \n    if no var name provided it stores the output into _\n\n")
             return None
 
         if percentcommand == "%disconnect":
@@ -260,6 +260,11 @@ class MicroPythonKernel(IPythonKernel):
             return self.dev.response
         else:
             return self.dev.output
+
+    def remote(self, command):
+        self.dev.wr_cmd(command, silent=True)
+        output = "[{}]:{}\n".format(self.dev.dev_platform, self.dev.output)
+        self.sres(output)
 
     def runnormalcell(self, cellcontents, bsuppressendcode):
         block = False
@@ -364,7 +369,10 @@ class MicroPythonKernel(IPythonKernel):
             else:
                 var = code.split('=')[0]
                 self.dev.wr_cmd(var, silent=True)
-            code = '{} = {}'.format(var, self.dev.output)
+            if isinstance(self.dev.output, str):
+                code = '{} = "{}"'.format(var, self.dev.output)
+            else:
+                code = '{} = {}'.format(var, self.dev.output)
             return super(MicroPythonKernel, self).do_execute(code=code, silent=silent,
                                                              store_history=store_history,
                                                              user_expressions=user_expressions,
@@ -405,7 +413,9 @@ class MicroPythonKernel(IPythonKernel):
                 val for val in self.magic_kw if val.startswith(buff_text_frst_cmd)]
             if buff_text_frst_cmd == '%serialconnect':
                 ls_cmd_str = "/dev/tty.*"
+                alt_port = "/dev/ttyUSB"
                 result = glob.glob(ls_cmd_str)
+                result += glob.glob(alt_port)
                 buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):
