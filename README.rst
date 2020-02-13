@@ -301,8 +301,17 @@ This works for any type of output (bytes/bytearrays/arrays/ints/floats/strings/l
 %logdata
 ---------
 This allows to log any data from device stdout as long as the data is in tuple or list format.
-The data will be stored in local iPython in 'devlog' e.g. :
+The data will be stored in local iPython in 'devlog'.
 
+positional arguments:
+   v             Name of variables
+optional arguments:
+   - -fs FS        Sampling frequency in Hz
+   - -tm TM        Sampling timeout in ms
+   - -u U [U ...]  Unit of variables
+   - -s            Silent mode
+
+e.g. :
 Logging accelerometer data from an IMU sensor.
 
 *micropython cell*
@@ -325,12 +334,12 @@ Logging accelerometer data from an IMU sensor.
 
 ::
 
-    %logdata 'x' 'y' 'z' -tm 10 -u 'g(m/s^2)'
+    %logdata 'x' 'y' 'z' -tm 10 -u 'g(9.8m/s^2)'
     stream_accel(400, 10)
 
 ::
 
-    vars:['x', 'y', 'z'], fs:None Hz, tm:10 ms, u: ['g(m/s^2)'], silent: False
+    vars:['x', 'y', 'z'], fs:None Hz, tm:10 ms, u: ['g(9.8m/s^2)'], silent: False
     ------------------------------
     (-0.6851807, 0.6947632, 0.3374634)
     (-0.6889038, 0.6830444, 0.3411255)
@@ -353,17 +362,17 @@ Now data is stored in devlog
 
     {'x': [-0.6851807, ..., -0.7344971], 'y': [0.6947632, ..., 0.7575684],
      'z': [-0.7280884, ..., 0.006652832], 'vars': ['x', 'y', 'z']
-     'fs': 100, 'ts': [0.0, ... , 4.0]}
+     'fs': 100, 'ts': [0.0, ... , 4.0], 'u': ['g(9.8m/s^2)']}
 
 
 %devplot
 --------
 This allows to plot *devlog* data, just do:
 
+
 ::
 
     %devplot
-
 
 
 
