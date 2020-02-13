@@ -71,6 +71,8 @@ For Jupyter lab do:
 
 In the launcher click on the MicroPython upydevice button to create a new notebook
 
+Serial device
+-------------
 
 To connect through serial/USB: ``%serialconnect [SERIAL PORT] [BAUDRATE]``
 
@@ -93,6 +95,9 @@ eg:
 
     MicroPython v1.12-156-g0852acfc7 on 2020-02-11; PYBv1.1 with STM32F405RG
     Type "help()" for more information.
+
+Wireless Device
+---------------
 
 To connect through WebREPL: ``%websocketconnect [IP] --password "[PASSWORD]"``
 
@@ -127,9 +132,6 @@ To do a soft reset (it will reconnect automatically) type:
 ::
 
    %rebootdevice
-
-
-
 
   Note: Restarting the kernel does not actually reboot the device.
   Also, pressing the reset button will mess things up (at least for WebREPL,
