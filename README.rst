@@ -309,7 +309,7 @@ optional arguments:
    - -fs FS        Sampling frequency in Hz
    - -tm TM        Sampling timeout in ms
    - -u U [U ...]  Unit of variables
-   - -s            Silent mode
+   -  \-s            Silent mode
 
 e.g. :
 Logging accelerometer data from an IMU sensor.
