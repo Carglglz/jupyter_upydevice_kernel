@@ -14,7 +14,7 @@ Tested on MicroPython v1.11 and v1.12
 Boards
 -------
 Tested on:
-  - pyboard V1.1/Lite
+  - PYBOARD V1.1/Lite
   - ESP32
   - CIRCUITPLAYGROUND EXPRESS
 
