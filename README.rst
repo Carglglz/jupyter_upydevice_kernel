@@ -378,3 +378,23 @@ This allows to plot *devlog* data, just do:
 
 .. image:: acc-plot.png
     :width: 40pt
+
+
+Now to save the plot do:
+
+::
+
+    %local
+    fig.savefig('acc-plot.png')
+
+
+::
+
+    %local
+    %ls
+
+::
+
+    LICENSE*                    mpy_kernel_upydevice/
+    README.rst*                 setup.py
+    acc-plot.png                upydevie_kernel_demo.ipynb
