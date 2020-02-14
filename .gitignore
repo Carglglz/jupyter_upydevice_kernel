@@ -91,3 +91,4 @@ ENV/
 .mpy_kernel
 .mpy_kernel/kernelmix.py
 .DS_Store
+.mpy_kernel_upydevice_test.py

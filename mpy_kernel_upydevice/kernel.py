@@ -1,7 +1,7 @@
 from ipykernel.kernelbase import Kernel
 import logging, sys, time, os, re
 import serial, socket, serial.tools.list_ports, select
-from . import deviceconnector
+from upydevice import SERIAL_DEVICE, WS_DEVICE
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
 import argparse
@@ -71,7 +71,6 @@ class MicroPythonKernel(IPythonKernel):
         # Kernel.__init__(self, **kwargs)
         super(MicroPythonKernel, self).__init__(**kwargs)
         self.silent = False
-        self.dc = deviceconnector
         self.dev = None
         self.dev_connected = False
         self.frozen_modules = {}
@@ -117,7 +116,7 @@ class MicroPythonKernel(IPythonKernel):
         if percentcommand == ap_serialconnect.prog:
             apargs = parseap(ap_serialconnect, percentstringargs[1:])
             try:
-                self.dev = self.dc.SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate, autodetect=True)
+                self.dev = SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate, autodetect=True)
                 if self.dev.is_reachable():
                     self.sres("\n ** Serial connected **\n\n", 32)
                     self.sres(str(self.dev.serial_port))
@@ -129,6 +128,7 @@ class MicroPythonKernel(IPythonKernel):
                     self.dev.wr_cmd("import os;import gc", silent=True)
                     # self.sres(str(self.frozen_modules['FM']))
                     self.dev_connected = True
+                    logger.info("Device {} connected in {}".format(self.dev.dev_platform, self.dev.serial_port))
                 else:
                     self.sres('Device is not reachable.', 31)
             except Exception as e:
@@ -149,7 +149,7 @@ class MicroPythonKernel(IPythonKernel):
         if percentcommand == ap_websocketconnect.prog:
             apargs = parseap(ap_websocketconnect, percentstringargs[1:])
 
-            self.dev = self.dc.WS_DEVICE(apargs.websocketurl, apargs.password)
+            self.dev = WS_DEVICE(apargs.websocketurl, apargs.password)
             if self.dev.is_reachable():
                 self.dev.open_wconn()
                 self.sres("\n ** WebREPL connected **\n", 32)
@@ -163,6 +163,7 @@ class MicroPythonKernel(IPythonKernel):
                 self.dev.wr_cmd("import os;import gc", silent=True)
                 # self.sres(str(self.frozen_modules['FM']))
                 self.dev_connected = True
+                logger.info("Device {} connected in {}:{}".format(self.dev.dev_platform, self.dev.ip, self.dev.port))
             else:
                 self.sres('Device is not reachable.', 31)
             return None
@@ -202,6 +203,7 @@ class MicroPythonKernel(IPythonKernel):
             self.dev.close_wconn()
             self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
             self.dev_connected = False
+            logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
             return None
 
         if percentcommand == "%rebootdevice":

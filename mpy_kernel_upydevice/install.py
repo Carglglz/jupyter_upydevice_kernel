@@ -11,7 +11,7 @@ from IPython.utils.tempdir import TemporaryDirectory
 # sys.executable should be "python3"
 kernel_json = { "argv": [sys.executable, "-m", "mpy_kernel_upydevice", "-f", "{connection_file}"],
  "display_name": "MicroPython upydevice kernel",
- "language": "micropython"
+ "language": "python"
 }
 
 

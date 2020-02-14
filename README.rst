@@ -19,6 +19,13 @@ Tested on:
   - CIRCUITPLAYGROUND EXPRESS
 
 
+IDE/PLATFORMS
+-------------
+- Jupyter notebooks
+- Jupyter lab
+- Atom (`Hydrogen <https://github.com/nteract/hydrogen>`_)
+- Visual Studio Code (`Jupyter notebooks <https://code.visualstudio.com/docs/python/jupyter-support>`_)
+
 Background
 ----------
 
