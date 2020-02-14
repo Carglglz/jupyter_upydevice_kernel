@@ -125,7 +125,7 @@ eg:
 You should now be able to execute MicroPython commands by running the
 cells.
 
-There is a *upydevie_kernel_demo.ipynb* file in the directory you could look at
+There is a *upydevice_kernel_demo.ipynb* file in the directory you could look at
 with some of the features shown.
 
 If a cell is taking too long, or if you want to stop an ongoing loop
@@ -191,7 +191,7 @@ are available, or to see more information about each command do:
       if no var name provided it stores the output into _
 
     %logdata [-fs FS] [-tm TM] [-u U [U ...]] [-s] v [v ...]
-      To log a output data of the device into iPython
+      To log output data of the device into iPython,
       data is stored in 'devlog'
 
      positional arguments:

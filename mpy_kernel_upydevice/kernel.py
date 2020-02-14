@@ -193,7 +193,7 @@ class MicroPythonKernel(IPythonKernel):
             self.sres("%local\n    To run the cell contents in local iPython\n\n")
             self.sres("%sync\n    To sync a variable/output data structure of the device into iPython \n    if no var name provided it stores the output into _\n\n")
             self.sres(re.sub("usage: ", "", ap_logdata.format_usage()))
-            self.sres("    To log a output data of the device into iPython \n    data is stored in 'devlog'\n\n")
+            self.sres("    To log output data of the device into iPython, \n    data is stored in 'devlog'\n\n")
             self.sres("   {}\n   {}\n".format(ap_logdata.format_help().split('\n\n')[1].replace('\n', '\n    '),
                                          ap_logdata.format_help().split('\n\n')[2].replace('\n', '\n    ')))
             self.sres("%devplot\n    To plot devlog data\n\n")
