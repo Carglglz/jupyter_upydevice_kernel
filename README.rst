@@ -23,7 +23,7 @@ Background
 ----------
 
 This Jupyter MicroPython Kernel is heavily based on the amazing work
-done on https://github.com/goatchurchprime/jupyter_micropython_remote.git
+done on https://github.com/goatchurchprime/jupyter_micropython_kernel.git
 and https://github.com/andrewleech/jupyter_micropython_remote
 
 Their device connection library has been replaced by
