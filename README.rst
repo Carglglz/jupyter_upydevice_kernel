@@ -107,7 +107,7 @@ Wireless Device
 ---------------
 
 To connect through WebREPL: ``%websocketconnect [IP] --password "[PASSWORD]"``
-or if a device already configured (see `upydev<https://github.com/Carglglz/upydev>`_)
+or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
 in the global group 'UPY_G',  ``%websocketconnect @[DEVICE]`` which has autocompletion
 on tab.
 eg:
