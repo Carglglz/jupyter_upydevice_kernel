@@ -643,7 +643,10 @@ class MicroPythonKernel(IPythonKernel):
                 cursor_pos = len(code)
             # line, offset = line_at_cursor(code, cursor_pos)
             # line_cursor = cursor_pos - offset
-            if self.dev._traceback.decode() in self.dev.output:
+            try:
+                if self.dev._traceback.decode() in self.dev.output:
+                    self.dev.output = []
+            except TypeError:
                 self.dev.output = []
 
             offset = cursor_pos - len(rest)
