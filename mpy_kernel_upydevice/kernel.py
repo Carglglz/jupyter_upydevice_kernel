@@ -8,7 +8,12 @@ import argparse
 import shlex
 import glob
 from binascii import hexlify
+import json
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
+try:
+    from upydev import __path__ as DEVSPATH
+except Exception as e:
+    DEVSPATH = '.'
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -148,6 +153,13 @@ class MicroPythonKernel(IPythonKernel):
 
         if percentcommand == ap_websocketconnect.prog:
             apargs = parseap(ap_websocketconnect, percentstringargs[1:])
+
+            # Catch entry point @
+            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.websocketurl:
+                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                    ws_devs = json.loads(cfg_file.read())
+                dev_cfg = ws_devs[apargs.websocketurl.replace("@", '')]
+                apargs.websocketurl, apargs.password = dev_cfg
 
             self.dev = WS_DEVICE(apargs.websocketurl, apargs.password)
             if self.dev.is_reachable():
@@ -497,6 +509,14 @@ class MicroPythonKernel(IPythonKernel):
                 result = glob.glob(ls_cmd_str)
                 result += glob.glob(alt_port)
                 buff_text_frst_cmd = code.split(' ')[1]
+
+            if buff_text_frst_cmd == '%websocketconnect':
+                result = []
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        ws_devs = json.loads(cfg_file.read())
+                    result = ["@{}".format(key) for key in ws_devs.keys()]
+                    buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):
                 # code = code.replace('%local\n', '')
