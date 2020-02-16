@@ -26,6 +26,7 @@ serialtimeoutcount = 10
 ap_serialconnect = argparse.ArgumentParser(prog="%serialconnect", add_help=False)
 ap_serialconnect.add_argument('portname', type=str, default=0, nargs="?")
 ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
+ap_serialconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
 
 # ap_socketconnect = argparse.ArgumentParser(prog="%socketconnect", add_help=False)
 # ap_socketconnect.add_argument('--raw', help='Just open connection', action='store_true')
@@ -35,6 +36,7 @@ ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
 ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help=False)
 ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
 ap_websocketconnect.add_argument("--password", type=str)
+ap_websocketconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
 
 ap_logdata = argparse.ArgumentParser(prog="%logdata", add_help=False)
 ap_logdata.add_argument('v', type=str, nargs="+", help='Name of variables')
@@ -121,6 +123,9 @@ class MicroPythonKernel(IPythonKernel):
         if percentcommand == ap_serialconnect.prog:
             apargs = parseap(ap_serialconnect, percentstringargs[1:])
             try:
+                if apargs.kbi:
+                    self.dev = SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate)
+                    self.dev._kbi_cmd()
                 self.dev = SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate, autodetect=True)
                 if self.dev.is_reachable():
                     self.sres("\n ** Serial connected **\n\n", 32)
@@ -165,6 +170,10 @@ class MicroPythonKernel(IPythonKernel):
             if self.dev.is_reachable():
                 self.dev.open_wconn()
                 self.sres("\n ** WebREPL connected **\n", 32)
+                if apargs.kbi:
+                    self.dev.kbi(silent=True)
+                    time.sleep(0.5)
+                    self.dev.flush_conn()
                 self.dev.banner(pipe=self.sres)
                 # self.sres(self.dev.response)
                 self.dev.wr_cmd("import sys; sys.platform", silent=True)
