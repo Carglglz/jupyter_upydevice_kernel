@@ -114,6 +114,7 @@ in the global group 'UPY_G',  ``%websocketconnect @[DEVICE]`` which has autocomp
 on tab.
 
 *Use -kbi option to interrupt any running loop*
+
 eg:
 
 ::
