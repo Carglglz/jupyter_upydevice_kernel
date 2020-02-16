@@ -6,7 +6,7 @@ def readme():
 
 setup(name='jupyter_micropython_upydevice',
       version='0.0.1',
-      description='Jupyter kernel based on upydevice for operating Micropython.',
+      description='Jupyter kernel based on upydevice for operating MicroPython.',
       long_description=readme(),
       author='Carlos Gil Gonzalez',
       author_email='carlosgilglez@gmail.com',
