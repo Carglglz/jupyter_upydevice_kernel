@@ -404,7 +404,7 @@ This allows to plot *devlog* data, just do:
 
 
 
-.. image:: acc-plot.png
+.. image:: https://raw.githubusercontent.com/Carglglz/jupyter_upydevice_kernel/master/acc-plot.png?token=ADTVSVFG6JJMJ7ANCC42BXK6JCLBA
     :width: 40pt
 
 
