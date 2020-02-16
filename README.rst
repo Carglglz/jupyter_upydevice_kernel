@@ -179,10 +179,10 @@ are available, or to see more information about each command do:
     %is_reachable
       Test if device is reachable (must be connected first)
 
-    %serialconnect [portname] [baudrate] [-kbi]
+    %serialconnect [portname] [-kbi] [baudrate]
       connects to a device over USB, default baudrate is 115200
 
-    %websocketconnect [websocketurl] [--password PASSWORD] [-kbi]
+    %websocketconnect [websocketurl] [-kbi] [--password PASSWORD]
       connects to the WebREPL over wifi (WebREPL daemon must be running)
       websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)
 
@@ -267,8 +267,15 @@ local cell
    slider = FloatSlider(min=0,max=1.0,step=0.01, layout=Layout(width='80%', height='80px'))
    interact(set_hue, hue=slider)
 
+
+
+\
+
+
+
 %sync
 -----
+
 Any variable/output of the device can be stored in local iPython easily.
 If a var name is not provided the output will be stored locally in _ , e.g. :
 
