@@ -87,6 +87,8 @@ This command has autocompletion on tab, so hit tab and select a port from the li
 
 Baudrate default is 115200
 
+*Use -kbi option to interrupt any running loop*
+
 eg:
 ::
 
@@ -110,6 +112,7 @@ To connect through WebREPL: ``%websocketconnect [IP] --password "[PASSWORD]"``
 or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
 in the global group 'UPY_G',  ``%websocketconnect @[DEVICE]`` which has autocompletion
 on tab.
+*Use -kbi option to interrupt any running loop*
 eg:
 
 ::
@@ -176,10 +179,10 @@ are available, or to see more information about each command do:
     %is_reachable
       Test if device is reachable (must be connected first)
 
-    %serialconnect [portname] [baudrate]
+    %serialconnect [portname] [baudrate] [-kbi]
       connects to a device over USB, default baudrate is 115200
 
-    %websocketconnect [websocketurl] [--password PASSWORD]
+    %websocketconnect [websocketurl] [--password PASSWORD] [-kbi]
       connects to the WebREPL over wifi (WebREPL daemon must be running)
       websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)
 
