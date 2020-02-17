@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='jupyter_micropython_upydevice',
-      version='0.0.1',
+      version='0.0.2',
       description='Jupyter kernel based on upydevice for operating MicroPython.',
       long_description=readme(),
       long_description_content_type='text/x-rst',
@@ -31,7 +31,7 @@ setup(name='jupyter_micropython_upydevice',
         'Topic :: Terminals'
       ],
       packages=['mpy_kernel_upydevice'],
-      install_requires=['upydevice>=0.2.0'],
+      install_requires=['upydevice>=0.2.1'],
       setup_requires=['setuptools_scm']
 
 )
