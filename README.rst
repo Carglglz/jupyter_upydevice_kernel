@@ -54,7 +54,7 @@ Then install this module:
 
 ::
 
-   pip install jupyter_micropython_upydevice
+   pip install jupyter-micropython-upydevice
 
 Install the kernel into jupyter itself using the shell command:
 
