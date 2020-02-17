@@ -16,6 +16,7 @@ Boards
 Tested on:
   - PYBOARD V1.1/Lite
   - ESP32
+  - ESP8266
   - CIRCUITPLAYGROUND EXPRESS
 
 
