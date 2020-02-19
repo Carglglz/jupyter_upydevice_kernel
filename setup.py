@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='jupyter_micropython_upydevice',
-      version='0.0.2',
+      version='0.0.3',
       description='Jupyter kernel based on upydevice for operating MicroPython.',
       long_description=readme(),
       long_description_content_type='text/x-rst',

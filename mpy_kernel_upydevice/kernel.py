@@ -15,7 +15,7 @@ try:
 except Exception as e:
     DEVSPATH = '.'
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('micropython-upydevice')
 logger.setLevel(logging.INFO)
 
 serialtimeout = 0.5
@@ -67,9 +67,9 @@ class MicroPythonKernel(IPythonKernel):
     implementation = 'micropython_kernel_upydevice'
     implementation_version = "v3"
 
-    banner = "MicroPython upydevice Jupyter Kernel"
+    banner = "MicroPython upydevice Jupyter Kernel v0.0.3"
 
-    language_info = {'name': 'micropython',
+    language_info = {'name': 'python',
                      'codemirror_mode': 'python',
                      'mimetype': 'text/python',
                      'file_extension': '.py'}
