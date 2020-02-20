@@ -17,6 +17,9 @@ except Exception as e:
 
 logger = logging.getLogger('micropython-upydevice')
 logger.setLevel(logging.INFO)
+logging.getLogger('asyncio').setLevel(logging.WARNING)
+logging.getLogger('parso.python.diff').setLevel(logging.WARNING)
+logging.getLogger('parso.cache').setLevel(logging.WARNING)
 
 serialtimeout = 0.5
 serialtimeoutcount = 10
@@ -37,6 +40,7 @@ ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help
 ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
 ap_websocketconnect.add_argument("--password", type=str)
 ap_websocketconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
+ap_websocketconnect.add_argument("-ssl", default=False, help='use WebSecureREPL if enabled', action='store_true')
 
 ap_logdata = argparse.ArgumentParser(prog="%logdata", add_help=False)
 ap_logdata.add_argument('v', type=str, nargs="+", help='Name of variables')
@@ -71,8 +75,9 @@ class MicroPythonKernel(IPythonKernel):
 
     language_info = {'name': 'python',
                      'codemirror_mode': 'python',
-                     'mimetype': 'text/python',
-                     'file_extension': '.py'}
+                     'mimetype': 'text/x-python',
+                     'file_extension': '.py',
+                     'pygments_lexer': 'python'}
 
     def __init__(self, **kwargs):
         # Kernel.__init__(self, **kwargs)
@@ -168,7 +173,7 @@ class MicroPythonKernel(IPythonKernel):
 
             self.dev = WS_DEVICE(apargs.websocketurl, apargs.password)
             if self.dev.is_reachable():
-                self.dev.open_wconn()
+                self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
                 self.sres("\n ** WebREPL connected **\n", 32)
                 if apargs.kbi:
                     self.dev.kbi(silent=True)
@@ -423,6 +428,7 @@ class MicroPythonKernel(IPythonKernel):
                                                              allow_stdin=allow_stdin)
         except self.syncLocalCell:
             code = code.replace('%sync\n', '')
+            code = code.replace('%sync ', '')
             self.dev.wr_cmd(code, silent=True)
             if '=' not in code:
                 var = '_'
