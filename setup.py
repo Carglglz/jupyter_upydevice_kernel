@@ -1,12 +1,14 @@
 from setuptools import setup
 
+
 def readme():
     with open('README.rst', 'r', encoding="utf-8") as f:
         return f.read()
 
+
 setup(name='jupyter_micropython_upydevice',
       version='0.0.3',
-      description='Jupyter kernel based on upydevice for operating MicroPython.',
+      description='Jupyter kernel based on upydevice for operating MicroPython',
       long_description=readme(),
       long_description_content_type='text/x-rst',
       author='Carlos Gil Gonzalez',
@@ -31,7 +33,5 @@ setup(name='jupyter_micropython_upydevice',
         'Topic :: Terminals'
       ],
       packages=['mpy_kernel_upydevice'],
-      install_requires=['upydevice>=0.2.1'],
-      setup_requires=['setuptools_scm']
-
-)
+      install_requires=['upydevice>=0.2.2'],
+      setup_requires=['setuptools_scm'])
