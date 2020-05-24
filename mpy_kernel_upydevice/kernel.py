@@ -69,9 +69,9 @@ def parseap(ap, percentstringargs1):
 
 class MicroPythonKernel(IPythonKernel):
     implementation = 'micropython_kernel_upydevice'
-    implementation_version = "v3"
+    implementation_version = "v4"
 
-    banner = "MicroPython upydevice Jupyter Kernel v0.0.3"
+    banner = "MicroPython upydevice Jupyter Kernel v0.0.4"
 
     language_info = {'name': 'python',
                      'codemirror_mode': 'python',
@@ -523,6 +523,8 @@ class MicroPythonKernel(IPythonKernel):
                 alt_port = "/dev/ttyUSB"
                 result = glob.glob(ls_cmd_str)
                 result += glob.glob(alt_port)
+                result += [p.device for p in
+                           serial.tools.list_ports.comports()]
                 buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd == '%websocketconnect':
