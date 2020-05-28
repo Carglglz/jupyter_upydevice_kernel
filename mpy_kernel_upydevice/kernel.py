@@ -15,11 +15,13 @@ try:
 except Exception as e:
     DEVSPATH = '.'
 
-logger = logging.getLogger('micropython-upydevice')
-logger.setLevel(logging.INFO)
+logging.getLogger("bleak.backends.corebluetooth.CentralManagerDelegate").setLevel(logging.ERROR)
 logging.getLogger('asyncio').setLevel(logging.WARNING)
 logging.getLogger('parso.python.diff').setLevel(logging.WARNING)
 logging.getLogger('parso.cache').setLevel(logging.WARNING)
+logging.getLogger('parso.cache').setLevel(logging.WARNING)
+logger = logging.getLogger('micropython-upydevice')
+logger.setLevel(logging.INFO)
 
 serialtimeout = 0.5
 serialtimeoutcount = 10
@@ -69,9 +71,9 @@ def parseap(ap, percentstringargs1):
 
 class MicroPythonKernel(IPythonKernel):
     implementation = 'micropython_kernel_upydevice'
-    implementation_version = "v4"
+    implementation_version = "v5"
 
-    banner = "MicroPython upydevice Jupyter Kernel v0.0.4"
+    banner = "MicroPython upydevice Jupyter Kernel v0.0.5"
 
     language_info = {'name': 'python',
                      'codemirror_mode': 'python',
