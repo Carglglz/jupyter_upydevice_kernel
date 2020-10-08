@@ -1,7 +1,7 @@
 from ipykernel.kernelbase import Kernel
 import logging, sys, time, os, re
 import serial, socket, serial.tools.list_ports, select
-from upydevice import SERIAL_DEVICE, WS_DEVICE
+from upydevice import SerialDevice, WebSocketDevice, check_device_type
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
 import argparse
@@ -129,27 +129,36 @@ class MicroPythonKernel(IPythonKernel):
 
         if percentcommand == ap_serialconnect.prog:
             apargs = parseap(ap_serialconnect, percentstringargs[1:])
+            dev_name = None
+            # Catch entry point @
+            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.portname:
+                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                    ws_devs = json.loads(cfg_file.read())
+                dev_cfg = ws_devs[apargs.portname.replace("@", '')]
+                dev_name = apargs.portname.replace("@", '')
+                apargs.portname, apargs.baudrate = dev_cfg
             try:
                 if apargs.kbi:
-                    self.dev = SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate)
+                    self.dev = SerialDevice(apargs.portname, baudrate=apargs.baudrate)
                     self.dev._kbi_cmd()
-                self.dev = SERIAL_DEVICE(apargs.portname, baudrate=apargs.baudrate, autodetect=True)
+                self.dev = SerialDevice(apargs.portname, baudrate=apargs.baudrate,
+                                        autodetect=True, name=dev_name)
                 if self.dev.is_reachable():
+                    logger.info("Device {} connected in {}".format(self.dev.dev_platform, self.dev.serial_port))
                     self.sres("\n ** Serial connected **\n\n", 32)
-                    self.sres(str(self.dev.serial_port))
+                    self.sres(str(self.dev))
                     self.sres("\n")
-                    self.dev.banner(pipe=self.sres)
                     # self.sres(self.dev.response)
                     self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
                     self.frozen_modules['FM'] = self.dev.output.split()[:-6]
                     self.dev.wr_cmd("import os;import gc", silent=True)
                     # self.sres(str(self.frozen_modules['FM']))
                     self.dev_connected = True
-                    logger.info("Device {} connected in {}".format(self.dev.dev_platform, self.dev.serial_port))
+                    self.dev.banner(pipe=self.sres)
                 else:
                     self.sres('Device is not reachable.', 31)
             except Exception as e:
-                self.sres('Serial Port {} not availalbe'.format(apargs.portname), 31)
+                self.sres('Serial Port {} not available'.format(apargs.portname), 31)
             return None
 
         # if percentcommand == ap_socketconnect.prog:
@@ -165,33 +174,40 @@ class MicroPythonKernel(IPythonKernel):
 
         if percentcommand == ap_websocketconnect.prog:
             apargs = parseap(ap_websocketconnect, percentstringargs[1:])
-
+            dev_name = None
             # Catch entry point @
             if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.websocketurl:
                 with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                     ws_devs = json.loads(cfg_file.read())
                 dev_cfg = ws_devs[apargs.websocketurl.replace("@", '')]
+                dev_name = apargs.websocketurl.replace("@", '')
                 apargs.websocketurl, apargs.password = dev_cfg
 
-            self.dev = WS_DEVICE(apargs.websocketurl, apargs.password)
+            self.dev = WebSocketDevice(apargs.websocketurl, apargs.password,
+                                       name=dev_name)
             if self.dev.is_reachable():
                 self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
-                self.sres("\n ** WebREPL connected **\n", 32)
                 if apargs.kbi:
                     self.dev.kbi(silent=True)
                     time.sleep(0.5)
                     self.dev.flush_conn()
-                self.dev.banner(pipe=self.sres)
+                repr_info = str(self.dev)
+                logger.info("Device {} connected in {}:{}".format(self.dev.dev_platform, self.dev.ip, self.dev.port))
+                self.sres("\n ** WebREPL connected **\n", 32)
+                self.sres("\n")
+                self.sres(repr_info)
+                self.sres("\n")
                 # self.sres(self.dev.response)
                 self.dev.wr_cmd("import sys; sys.platform", silent=True)
                 self.dev.dev_platform = self.dev.output
-                self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.ip.split('.')[-1])
+                if not self.dev.name:
+                    self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.ip.split('.')[-1])
                 self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
                 self.frozen_modules['FM'] = self.dev.output.split()[:-6]
                 self.dev.wr_cmd("import os;import gc", silent=True)
                 # self.sres(str(self.frozen_modules['FM']))
                 self.dev_connected = True
-                logger.info("Device {} connected in {}:{}".format(self.dev.dev_platform, self.dev.ip, self.dev.port))
+                self.dev.banner(pipe=self.sres)
             else:
                 self.sres('Device is not reachable.', 31)
             return None
@@ -527,6 +543,12 @@ class MicroPythonKernel(IPythonKernel):
                 result += glob.glob(alt_port)
                 result += [p.device for p in
                            serial.tools.list_ports.comports()]
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        s_devs = json.loads(cfg_file.read())
+                    s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                check_device_type(s_devs[key][0]) == 'SerialDevice']
+                    result = s_result + result
                 buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd == '%websocketconnect':
@@ -534,7 +556,8 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         ws_devs = json.loads(cfg_file.read())
-                    result = ["@{}".format(key) for key in ws_devs.keys()]
+                    result = ["@{}".format(key) for key in ws_devs.keys()
+                              if check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):
