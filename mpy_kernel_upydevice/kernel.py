@@ -318,7 +318,7 @@ class MicroPythonKernel(IPythonKernel):
                 unique_id = hexlify(uid).decode()
             except Exception as e:
                 unique_id = uid
-            if self.dev.dev_class == 'SERIAL':
+            if self.dev.dev_class == 'SerialDevice':
                 self.sres('DEVICE: {}, SERIAL PORT: {} , BAUDRATE: {},  ID: {}\n'.format(self.dev.name, self.dev.serial_port, self.dev.baudrate, unique_id))
             else:
                 self.sres('DEVICE: {}, IP: {} , PORT: {},  ID: {}\n'.format(self.dev.name, self.dev.ip, self.dev.port, unique_id))
@@ -354,7 +354,7 @@ class MicroPythonKernel(IPythonKernel):
         block = False
         indexline = 0
         if any([kw in cellcontents for kw in self.block_kw]):
-            if self.dev.dev_class == 'SERIAL':
+            if self.dev.dev_class == 'SerialDevice':
 
                 self.dev.paste_buff(cellcontents)
                 cmdlines = True

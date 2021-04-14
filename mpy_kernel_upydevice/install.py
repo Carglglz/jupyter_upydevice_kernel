@@ -9,10 +9,10 @@ from IPython.utils.tempdir import TemporaryDirectory
 # copied out from https://github.com/takluyver/bash_kernel/blob/master/bash_kernel/install.py
 
 # sys.executable should be "python3"
-kernel_json = { "argv": [sys.executable, "-m", "mpy_kernel_upydevice", "-f", "{connection_file}"],
- "display_name": "MicroPython upydevice kernel",
- "language": "python"
-}
+kernel_json = {"argv": [sys.executable, "-m", "mpy_kernel_upydevice", "-f", "{connection_file}"],
+               "display_name": "MicroPython upydevice kernel",
+               "language": "python"
+               }
 
 
 def install_my_kernel_spec(user=True, prefix=None):
@@ -26,7 +26,7 @@ def install_my_kernel_spec(user=True, prefix=None):
 
         print('Installing IPython kernel spec of micropython')
         k = KernelSpecManager()
-        k.install_kernel_spec(td, 'Micropython-upydevice', user=user, replace=True, prefix=prefix)
+        k.install_kernel_spec(td, 'Micropython-upydevice', user=user, prefix=prefix)
 
         h = k.get_kernel_spec("micropython-upydevice")
         print("...into", h.resource_dir)
