@@ -1,7 +1,7 @@
 from ipykernel.kernelbase import Kernel
 import logging, sys, time, os, re
 import serial, socket, serial.tools.list_ports, select
-from upydevice import SerialDevice, WebSocketDevice, check_device_type
+from upydevice import SerialDevice, WebSocketDevice, check_device_type, AsyncBleDevice
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
 import argparse
@@ -9,6 +9,7 @@ import shlex
 import glob
 from binascii import hexlify
 import json
+import asyncio
 from IPython.utils.tokenutil import token_at_cursor, line_at_cursor
 try:
     from upydev import __path__ as DEVSPATH
@@ -33,10 +34,8 @@ ap_serialconnect.add_argument('portname', type=str, default=0, nargs="?")
 ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
 ap_serialconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
 
-# ap_socketconnect = argparse.ArgumentParser(prog="%socketconnect", add_help=False)
-# ap_socketconnect.add_argument('--raw', help='Just open connection', action='store_true')
-# ap_socketconnect.add_argument('ipnumber', type=str)
-# ap_socketconnect.add_argument('portnumber', type=int)
+ap_bleconnect = argparse.ArgumentParser(prog="%bleconnect", add_help=False)
+ap_bleconnect.add_argument('bleaddress', type=str, default="", nargs="?")
 
 ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help=False)
 ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
@@ -90,6 +89,7 @@ class MicroPythonKernel(IPythonKernel):
         self.frozen_modules = {}
         self.global_execution_count = 0
         self.magic_kw = ['%disconnect', '%serialconnect', '%websocketconnect',
+                         '%bleconnect',
                          '%rebootdevice', '%is_reachable', '%lsmagic',
                          '%meminfo', '%whoami', '%gccollect', '%local',
                          '%sync', '%logdata', '%devplot']
@@ -161,16 +161,38 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres('Serial Port {} not available'.format(apargs.portname), 31)
             return None
 
-        # if percentcommand == ap_socketconnect.prog:
-        #     apargs = parseap(ap_socketconnect, percentstringargs[1:])
-        #     self.dc.socketconnect(apargs.ipnumber, apargs.portnumber)
-        #     if self.dc.workingsocket:
-        #         self.sres("\n ** Socket connected **\n\n", 32)
-        #         self.sres(str(self.dc.workingsocket))
-        #         self.sres("\n")
-        #         #if not apargs.raw:
-        #         #    self.dc.enterpastemode()
-        #     return None
+        if percentcommand == ap_bleconnect.prog:
+            apargs = parseap(ap_bleconnect, percentstringargs[1:])
+            dev_name = None
+            # Catch entry point @
+            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.bleaddress:
+                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                    ws_devs = json.loads(cfg_file.read())
+                dev_cfg = ws_devs[apargs.bleaddress.replace("@", '')]
+                dev_name = apargs.bleaddress.replace("@", '')
+                apargs.bleaddress, _ = dev_cfg
+            try:
+                self.dev = AsyncBleDevice(apargs.bleaddress, name=dev_name)
+                self.dev.connect()
+                repr_info = str(self.dev)
+                logger.info("Device {} connected in @ {}".format(self.dev.dev_platform, self.dev.address))
+                self.sres("\n ** BleREPL connected **\n", 32)
+                self.sres("\n")
+                self.sres(repr_info)
+                self.sres("\n")
+                if not self.dev.name:
+                    self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.address[:8])
+                self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
+                self.frozen_modules['FM'] = self.dev.output.split()[:-6]
+                self.dev.wr_cmd("import os;import gc", silent=True)
+                # self.sres(str(self.frozen_modules['FM']))
+                self.dev_connected = True
+                self.dev.banner(pipe=self.sres)
+                self.dev.pipe = self.sres
+            except Exception as e:
+                self.sres('Device is not reachable.', 31)
+
+            return None
 
         if percentcommand == ap_websocketconnect.prog:
             apargs = parseap(ap_websocketconnect, percentstringargs[1:])
@@ -198,8 +220,8 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres(repr_info)
                 self.sres("\n")
                 # self.sres(self.dev.response)
-                self.dev.wr_cmd("import sys; sys.platform", silent=True)
-                self.dev.dev_platform = self.dev.output
+                # self.dev.wr_cmd("import sys; sys.platform", silent=True)
+                # self.dev.dev_platform = self.dev.output
                 if not self.dev.name:
                     self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.ip.split('.')[-1])
                 self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
@@ -244,7 +266,7 @@ class MicroPythonKernel(IPythonKernel):
             return None
 
         if percentcommand == "%disconnect":
-            self.dev.close_wconn()
+            self.dev.disconnect()
             self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
             self.dev_connected = False
             logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
@@ -320,6 +342,8 @@ class MicroPythonKernel(IPythonKernel):
                 unique_id = uid
             if self.dev.dev_class == 'SerialDevice':
                 self.sres('DEVICE: {}, SERIAL PORT: {} , BAUDRATE: {},  ID: {}\n'.format(self.dev.name, self.dev.serial_port, self.dev.baudrate, unique_id))
+            elif self.dev.dev_class == 'BleDevice':
+                self.sres('DEVICE: {}, UUID: {}, ID: {}\n'.format(self.dev.name, self.dev.address, unique_id))
             else:
                 self.sres('DEVICE: {}, IP: {} , PORT: {},  ID: {}\n'.format(self.dev.name, self.dev.ip, self.dev.port, unique_id))
             sysinfo = self.send_custom_sh_cmd('import os;os.uname()')
@@ -512,9 +536,9 @@ class MicroPythonKernel(IPythonKernel):
         if interrupted:
             self.sres("\n\n*** Sending Ctrl-C\n\n")
             if self.dev_connected:
-                self.dev.close_wconn()
+                # self.dev.close_wconn()
                 self.dev.kbi()
-                self.dev.open_wconn()
+                # self.dev.open_wconn()
                 interrupted = True
                 # self.dc.receivestream(bseekokay=False, b5secondtimeout=True)
             return {'status': 'abort', 'execution_count': self.global_execution_count}
@@ -558,6 +582,15 @@ class MicroPythonKernel(IPythonKernel):
                         ws_devs = json.loads(cfg_file.read())
                     result = ["@{}".format(key) for key in ws_devs.keys()
                               if check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
+                    buff_text_frst_cmd = code.split(' ')[1]
+
+            if buff_text_frst_cmd == '%bleconnect':
+                result = []
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        ws_devs = json.loads(cfg_file.read())
+                    result = ["@{}".format(key) for key in ws_devs.keys()
+                              if check_device_type(ws_devs[key][0]) == 'BleDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):
