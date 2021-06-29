@@ -17,6 +17,8 @@ except Exception as e:
     DEVSPATH = '.'
 
 logging.getLogger("bleak.backends.corebluetooth.CentralManagerDelegate").setLevel(logging.ERROR)
+logging.getLogger("bleak.backends.corebluetooth.client").setLevel(logging.ERROR)
+logging.getLogger("bleak.backends.corebluetooth.PeripheralDelegate").setLevel(logging.ERROR)
 logging.getLogger('asyncio').setLevel(logging.WARNING)
 logging.getLogger('parso.python.diff').setLevel(logging.WARNING)
 logging.getLogger('parso.cache').setLevel(logging.WARNING)
