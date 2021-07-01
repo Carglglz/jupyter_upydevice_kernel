@@ -184,8 +184,9 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres("\n")
                 if not self.dev.name:
                     self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.address[:8])
-                self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
-                self.frozen_modules['FM'] = self.dev.output.split()[:-6]
+                if self.dev.name not in ['P8', 'PineTime']:
+                    self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
+                    self.frozen_modules['FM'] = self.dev.output.split()[:-6]
                 self.dev.wr_cmd("import os;import gc", silent=True)
                 # self.sres(str(self.frozen_modules['FM']))
                 self.dev_connected = True
