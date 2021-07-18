@@ -106,8 +106,8 @@ eg:
     MicroPython v1.12-156-g0852acfc7 on 2020-02-11; PYBv1.1 with STM32F405RG
     Type "help()" for more information.
 
-Wireless Device
----------------
+Wireless Device: WiFi
+---------------------
 
 To connect through WebREPL: ``%websocketconnect [IP] --password "[PASSWORD]"``
 or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
@@ -137,6 +137,46 @@ or
     MicroPython v1.12-63-g1c849d63a on 2020-01-14; ESP32 module with ESP32
     Type "help()" for more information.
 
+
+Wireless Device: BLE
+--------------------
+
+To connect through BLEREPL: ``%bleconnect [ADDRESS] "``
+or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
+in the global group 'UPY_G',  ``%bleconnect @[DEVICE]`` which has autocompletion
+on tab.
+
+
+eg:
+
+::
+
+    %bleconnect 9998175F-9A91-4CA2-B5EA-482AFC3453B9
+
+
+
+or
+
+::
+
+    %bleconnect @bledev
+
+::
+
+  [Service] 6e400001-b5a3-f393-e0a9-e50e24dcca9e: Nordic UART Service
+  [Characteristic] 6e400003-b5a3-f393-e0a9-e50e24dcca9e: (notify) | Name: Nordic UART TX
+    [Descriptor] [00002902-0000-1000-8000-00805f9b34fb]: Client Characteristic Configuration (Handle: 22)
+  [Characteristic] 6e400002-b5a3-f393-e0a9-e50e24dcca9e: (write) | Name: Nordic UART RX
+
+  ** BleREPL connected **
+
+  BleDevice @ 9998175F-9A91-4CA2-B5EA-482AFC3453B9, Type: esp32 , Class: BleDevice
+  Firmware: MicroPython v1.16 on 2021-06-24; ESP32 module with ESP32
+  (MAC: 30:ae:a4:23:35:64, Local Name: esp32-34, RSSI: -50 dBm)
+
+  MicroPython v1.16 on 2021-06-24; ESP32 module with ESP32
+  Type "help()" for more information.
+
 You should now be able to execute MicroPython commands by running the
 cells.
 
@@ -156,7 +196,7 @@ To do a soft reset (it will reconnect automatically) type:
    %rebootdevice
 
   Note: Restarting the kernel does not actually reboot the device.
-  Also, pressing the reset button will mess things up (at least for WebREPL,
+  Also, pressing the reset button will mess things up (at least for WebREPL, BleREPL
   and for serial this is probably true as well).
 
 %Cell magic Commands
@@ -188,6 +228,9 @@ are available, or to see more information about each command do:
     %websocketconnect [websocketurl] [-kbi] [--password PASSWORD]
       connects to the WebREPL over wifi (WebREPL daemon must be running)
       websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)
+
+    %bleconnect [bleaddress]
+    connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)
 
     %meminfo
       Shows RAM size/used/free/use% info
@@ -330,7 +373,7 @@ This works for any type of output (bytes/bytearrays/arrays/ints/floats/strings/l
 %logdata
 ---------
 This allows to log any data from device stdout as long as the data is in tuple or list format.
-The data will be stored in local iPython in 'devlog'.
+The data will be stored in local iPython in 'devlog'. *(Serial and WebSocketDevices only)*
 
 positional arguments:
    v             Name of variables

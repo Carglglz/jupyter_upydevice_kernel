@@ -256,6 +256,9 @@ class MicroPythonKernel(IPythonKernel):
             self.sres("    websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)\n\n")
             # self.sres(re.sub("usage: ", "", ap_writebytes.format_usage()))
             # self.sres("    does serial.write() of the python quoted string given\n\n")
+            self.sres(re.sub("usage: ", "", ap_bleconnect.format_usage()))
+            self.sres("    connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)\n\n")
+
             self.sres("%meminfo\n    Shows RAM size/used/free/use% info\n\n")
             self.sres("%whoami\n    Shows Device name, port, id, and system info\n\n")
             self.sres("%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
