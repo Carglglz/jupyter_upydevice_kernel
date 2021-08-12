@@ -9,7 +9,7 @@ or through the WebREPL.
 
 MicroPython
 -----------
-Tested on MicroPython v1.11 and v1.12
+Tested on MicroPython v1.11 - v1.16
 
 Boards
 -------
