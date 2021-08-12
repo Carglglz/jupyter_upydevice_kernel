@@ -33,5 +33,5 @@ setup(name='jupyter_micropython_upydevice',
         'Topic :: Terminals'
       ],
       packages=['mpy_kernel_upydevice'],
-      install_requires=['upydevice>=0.2.3'],
+      install_requires=['upydevice>=0.3.0'],
       setup_requires=['setuptools_scm'])
