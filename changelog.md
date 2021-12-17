@@ -4,9 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.5] - [Github repo]
+## [0.0.6] - [Github repo]
 ### Added
-- Bledevice 
+- `%connect` magic command to connect to a device based on device type
+- `%rssi` magic command to get RSSI of the device (WebSocketDevice, and BleDevice)
+### Fix
+- Autocompletion of configured devices
+- Handle on connection error, not configured or not available.
+- Disconnection status
+## [0.0.5] - 2021-08-15
+### Added
+- Bledevice
 ## [0.0.4] - 2020-05-25
 ### Fix
 - Serial is reachable fix

@@ -104,10 +104,10 @@ class MicroPythonKernel(IPythonKernel):
         self.frozen_modules = {}
         self.global_execution_count = 0
         self.magic_kw = ['%disconnect', '%serialconnect', '%websocketconnect',
-                         '%bleconnect',
+                         '%bleconnect', '%connect',
                          '%rebootdevice', '%is_reachable', '%lsmagic',
                          '%meminfo', '%whoami', '%gccollect', '%local',
-                         '%sync', '%logdata', '%devplot']
+                         '%sync', '%logdata', '%devplot', '%rssi', '%info']
         self.block_kw = ['if ', 'else:', 'def ', 'while ', 'for ', 'elif ', ':',
                          'try:', 'except ']
 
@@ -141,6 +141,35 @@ class MicroPythonKernel(IPythonKernel):
     def interpretpercentline(self, percentline, cellcontents):
         percentstringargs = shlex.split(percentline)
         percentcommand = percentstringargs[0]
+
+        if percentcommand == '%connect':
+            _dev_entry_point = percentstringargs[1]
+            if '@' in _dev_entry_point:
+                try:
+                    if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                        with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                            all_devs = json.loads(cfg_file.read())
+                        dev_cfg = all_devs[_dev_entry_point.replace("@", '')]
+                        dev_name = _dev_entry_point.replace("@", '')
+                        dev_address, _ = dev_cfg
+                        dev_type = check_device_type(dev_address)
+                except Exception as e:
+                    _dev = _dev_entry_point.replace("@", '')
+                    self.sres(f'Device {_dev} not configured', 31)
+                    return None
+            else:
+                try:
+                    dev_type = check_device_type(_dev_entry_point)
+                except Exception as e:
+                    self.sres(f'Device address not compatible', 31)
+                    self.sres(f'{e}', 31)
+                    return None
+            if dev_type == 'SerialDevice':
+                percentcommand = '%serialconnect'
+            elif dev_type == 'WebSocketDevice':
+                percentcommand = '%websocketconnect'
+            elif dev_type == 'BleDevice':
+                percentcommand = '%bleconnect'
 
         if percentcommand == ap_serialconnect.prog:
             apargs = parseap(ap_serialconnect, percentstringargs[1:])
@@ -312,6 +341,7 @@ class MicroPythonKernel(IPythonKernel):
 
             self.sres("%meminfo\n    Shows RAM size/used/free/use% info\n\n")
             self.sres("%whoami\n    Shows Device name, port, id, and system info\n\n")
+            self.sres("%rssi\n    Shows Device RSSI if wireless\n\n")
             self.sres(
                 "%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
             self.sres("%local\n    To run the cell contents in local iPython\n\n")
@@ -325,10 +355,11 @@ class MicroPythonKernel(IPythonKernel):
             return None
 
         if percentcommand == "%disconnect":
-            self.dev.disconnect()
-            self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
-            self.dev_connected = False
-            logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
+            if self.dev.connected:
+                self.dev.disconnect()
+                self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
+                self.dev_connected = False
+                logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
             return None
 
         if percentcommand == "%rebootdevice":
@@ -370,6 +401,16 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres("Device is reachable!\n", 32)
             else:
                 self.sres("Device is NOT reachable!\n", 31)
+            return None
+
+        if percentcommand == "%rssi":
+            # self.dev.close_wconn()
+            if hasattr(self.dev, 'get_RSSI') and self.dev.connected:
+                resp = self.dev.get_RSSI()
+            else:
+                resp = 0
+            if resp:
+                self.sres(f"RSSI: {resp} dBm \n")
             return None
 
         if percentcommand == '%meminfo':
@@ -621,6 +662,10 @@ class MicroPythonKernel(IPythonKernel):
         glb = False
         import_cmd = False
         buff_text_frst_cmd = code.split(' ')[0]
+        if len(code.split(' ')) > 1:
+            _buff_sec_cmd = code.split(' ')[1]
+        else:
+            _buff_sec_cmd = None
         # magic keyword
         if buff_text_frst_cmd.startswith('%') and '%sync' not in buff_text_frst_cmd:
             if cursor_pos is None:
@@ -629,6 +674,18 @@ class MicroPythonKernel(IPythonKernel):
             # line_cursor = cursor_pos - offset
             result = [
                 val for val in self.magic_kw if val.startswith(buff_text_frst_cmd)]
+            if buff_text_frst_cmd == '%connect':
+                result = []
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        s_devs = json.loads(cfg_file.read())
+                    if _buff_sec_cmd:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        s_result = ["@{}".format(key) for key in s_devs.keys()]
+                    result = s_result + result
+                buff_text_frst_cmd = code.split(' ')[1]
             if buff_text_frst_cmd == '%serialconnect':
                 ls_cmd_str = "/dev/tty.*"
                 alt_port = "/dev/ttyUSB"
@@ -639,8 +696,13 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         s_devs = json.loads(cfg_file.read())
-                    s_result = ["@{}".format(key) for key in s_devs.keys() if
-                                check_device_type(s_devs[key][0]) == 'SerialDevice']
+                    if _buff_sec_cmd:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    check_device_type(s_devs[key][0]) == 'SerialDevice'
+                                    and key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    check_device_type(s_devs[key][0]) == 'SerialDevice']
                     result = s_result + result
                 buff_text_frst_cmd = code.split(' ')[1]
 
@@ -649,8 +711,14 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         ws_devs = json.loads(cfg_file.read())
-                    result = ["@{}".format(key) for key in ws_devs.keys()
-                              if check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
+                    if _buff_sec_cmd:
+                        result = ["@{}".format(key) for key in ws_devs.keys() if
+                                  check_device_type(
+                                      ws_devs[key][0]) == 'WebSocketDevice'
+                                  and key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        result = ["@{}".format(key) for key in ws_devs.keys() if
+                                  check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd == '%bleconnect':
@@ -658,8 +726,14 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         ws_devs = json.loads(cfg_file.read())
-                    result = ["@{}".format(key) for key in ws_devs.keys()
-                              if check_device_type(ws_devs[key][0]) == 'BleDevice']
+                    if _buff_sec_cmd:
+                        result = ["@{}".format(key) for key in ws_devs.keys()
+                                  if check_device_type(ws_devs[key][0]) == 'BleDevice'
+                                  and key.startswith(_buff_sec_cmd.replace("@", ''))]
+
+                    else:
+                        result = ["@{}".format(key) for key in ws_devs.keys()
+                                  if check_device_type(ws_devs[key][0]) == 'BleDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):

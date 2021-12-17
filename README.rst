@@ -83,6 +83,9 @@ Serial device
 -------------
 
 To connect through serial/USB: ``%serialconnect [SERIAL PORT] [BAUDRATE]``
+or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
+in the global group 'UPY_G',  ``%serialconnect @[DEVICE]`` which has autocompletion
+on tab.
 
 This command has autocompletion on tab, so hit tab and select a port from the list
 
@@ -99,12 +102,24 @@ eg:
 
 ::
 
-    ** Serial connected **
+or
 
-    /dev/tty.usbmodem3370377430372
+::
 
-    MicroPython v1.12-156-g0852acfc7 on 2020-02-11; PYBv1.1 with STM32F405RG
-    Type "help()" for more information.
+    %serialconnect @pybV1.1
+
+::
+
+  ** Serial connected **
+
+  SerialDevice @ /dev/tty.usbmodem3370377430372, Type: pyboard, Class: SerialDevice
+  Firmware: MicroPython v1.17-217-gde7e3cd79-dirty on 2021-11-30; PYBv1.1 with STM32F405RG
+  Pyboard Virtual Comm Port in FS Mode, Manufacturer: MicroPython
+  (MAC: 3c:00:3d:00:02:47:37:30:38:37:33:33)
+
+  MicroPython v1.17-217-gde7e3cd79-dirty on 2021-11-30; PYBv1.1 with STM32F405RG
+  Type "help()" for more information.
+
 
 Wireless Device: WiFi
 ---------------------
@@ -132,10 +147,14 @@ or
 
 ::
 
-    ** WebREPL connected **
+  ** WebREPL connected **
 
-    MicroPython v1.12-63-g1c849d63a on 2020-01-14; ESP32 module with ESP32
-    Type "help()" for more information.
+  WebSocketDevice @ ws://192.168.1.66:8266, Type: esp32, Class: WebSocketDevice
+  Firmware: MicroPython v1.17 on 2021-09-02; ESP32 module with ESP32
+  (MAC: 7c:9e:bd:3d:9d:f4, Host Name: gkesp32, RSSI: -58 dBm)
+
+  MicroPython v1.17 on 2021-09-02; ESP32 module with ESP32
+  Type "help()" for more information.
 
 
 Wireless Device: BLE
@@ -449,7 +468,7 @@ This allows to plot *devlog* data, just do:
 
 
 .. image:: acc-plot.png
-    :width: 40pt
+    :width: 2140pt
 
 
 Now to save the plot do:
