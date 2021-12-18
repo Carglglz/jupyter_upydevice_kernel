@@ -107,7 +107,7 @@ class MicroPythonKernel(IPythonKernel):
                          '%bleconnect', '%connect',
                          '%rebootdevice', '%is_reachable', '%lsmagic',
                          '%meminfo', '%whoami', '%gccollect', '%local',
-                         '%sync', '%logdata', '%devplot', '%rssi', '%info']
+                         '%sync', '%logdata', '%devplot', '%rssi', ]
         self.block_kw = ['if ', 'else:', 'def ', 'while ', 'for ', 'elif ', ':',
                          'try:', 'except ']
 
@@ -161,7 +161,7 @@ class MicroPythonKernel(IPythonKernel):
                 try:
                     dev_type = check_device_type(_dev_entry_point)
                 except Exception as e:
-                    self.sres(f'Device address not compatible', 31)
+                    self.sres('Device address not compatible', 31)
                     self.sres(f'{e}', 31)
                     return None
             if dev_type == 'SerialDevice':
@@ -322,6 +322,8 @@ class MicroPythonKernel(IPythonKernel):
                 "%is_reachable\n    Test if device is reachable (must be connected first)\n\n")
             # self.sres(re.sub("usage: ", "", ap_sendtofile.format_usage()))
             # self.sres("    send cell contents or file from disk to device file\n\n")
+            self.sres(
+                "%connect\n    connects to a device based on addres or configuration\n\n")
             self.sres(re.sub("usage: ", "", ap_serialconnect.format_usage()))
             self.sres("    connects to a device over USB, default baudrate is 115200\n\n")
             # self.sres(re.sub("usage: ", "", ap_socketconnect.format_usage()))
