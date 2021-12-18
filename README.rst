@@ -35,12 +35,13 @@ done on https://github.com/goatchurchprime/jupyter_micropython_kernel
 and https://github.com/andrewleech/jupyter_micropython_remote
 
 Their device connection library has been replaced by
-upydevice latest classes ``SERIAL_DEVICE`` and ``WS_DEVICE`` that allows both serial and
-websocket (WebREPL) connections.
+upydevice latest classes ``SerialDevice``, ``WebSocketDevice`` and ``AsyncBleDevice``
+that allows Serial, WiFi (websocket-WebREPL) and Bluetooth Low Energy (BleREPL) connections.
 The kernel has also been reworked to support autocompletions on tab which works
 for MicroPython, iPython and %cell magic commands.
 Some %cell magic commands were dropped and some new were added e.g: ``%is_reachable``
-``%meminfo`` ``%whoami`` ``%gccollect`` ``%sync`` ``%logdata`` ``%devplot``
+``%meminfo`` ``%whoami`` ``%gccollect`` ``%sync`` ``%logdata`` ``%devplot`` ``%connect``
+``%rssi``
 
 Installation
 ------------
@@ -83,6 +84,9 @@ Serial device
 -------------
 
 To connect through serial/USB: ``%serialconnect [SERIAL PORT] [BAUDRATE]``
+or if a device already configured (see `upydev <https://github.com/Carglglz/upydev>`_)
+in the global group 'UPY_G',  ``%serialconnect @[DEVICE]`` which has autocompletion
+on tab.
 
 This command has autocompletion on tab, so hit tab and select a port from the list
 
@@ -99,12 +103,24 @@ eg:
 
 ::
 
-    ** Serial connected **
+or
 
-    /dev/tty.usbmodem3370377430372
+::
 
-    MicroPython v1.12-156-g0852acfc7 on 2020-02-11; PYBv1.1 with STM32F405RG
-    Type "help()" for more information.
+    %serialconnect @pybV1.1
+
+::
+
+  ** Serial connected **
+
+  SerialDevice @ /dev/tty.usbmodem3370377430372, Type: pyboard, Class: SerialDevice
+  Firmware: MicroPython v1.17-217-gde7e3cd79-dirty on 2021-11-30; PYBv1.1 with STM32F405RG
+  Pyboard Virtual Comm Port in FS Mode, Manufacturer: MicroPython
+  (MAC: 3c:00:3d:00:02:47:37:30:38:37:33:33)
+
+  MicroPython v1.17-217-gde7e3cd79-dirty on 2021-11-30; PYBv1.1 with STM32F405RG
+  Type "help()" for more information.
+
 
 Wireless Device: WiFi
 ---------------------
@@ -132,10 +148,14 @@ or
 
 ::
 
-    ** WebREPL connected **
+  ** WebREPL connected **
 
-    MicroPython v1.12-63-g1c849d63a on 2020-01-14; ESP32 module with ESP32
-    Type "help()" for more information.
+  WebSocketDevice @ ws://192.168.1.66:8266, Type: esp32, Class: WebSocketDevice
+  Firmware: MicroPython v1.17 on 2021-09-02; ESP32 module with ESP32
+  (MAC: 7c:9e:bd:3d:9d:f4, Host Name: gkesp32, RSSI: -58 dBm)
+
+  MicroPython v1.17 on 2021-09-02; ESP32 module with ESP32
+  Type "help()" for more information.
 
 
 Wireless Device: BLE
@@ -177,6 +197,22 @@ or
   MicroPython v1.16 on 2021-06-24; ESP32 module with ESP32
   Type "help()" for more information.
 
+
+The ``%connect`` magic command allows any type of device:
+::
+
+    %connect @esp_room1
+
+::
+
+    %connect @pybV1.1
+
+::
+
+    %connect @bledev
+
+
+
 You should now be able to execute MicroPython commands by running the
 cells.
 
@@ -210,45 +246,51 @@ are available, or to see more information about each command do:
 
 ::
 
-    %disconnect
-      disconnects device
+  %disconnect
+    disconnects device
 
-    %lsmagic
+  %lsmagic
       list magic commands
 
-    %rebootdevice
+  %rebootdevice
       reboots device
 
-    %is_reachable
+  %is_reachable
       Test if device is reachable (must be connected first)
 
-    %serialconnect [portname] [-kbi] [baudrate]
+  %connect
+      connects to a device based on addres or configuration
+
+  %serialconnect [-kbi] [portname] [baudrate]
       connects to a device over USB, default baudrate is 115200
 
-    %websocketconnect [websocketurl] [-kbi] [--password PASSWORD]
+  %websocketconnect [--password PASSWORD] [-kbi] [-ssl] [websocketurl]
       connects to the WebREPL over wifi (WebREPL daemon must be running)
       websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)
 
-    %bleconnect [bleaddress]
-    connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)
+  %bleconnect [bleaddress]
+      connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)
 
-    %meminfo
+  %meminfo
       Shows RAM size/used/free/use% info
 
-    %whoami
+  %whoami
       Shows Device name, port, id, and system info
 
-    %gccollect
+  %rssi
+      Shows Device RSSI if wireless
+
+  %gccollect
       To use the garbage collector and free some RAM if possible
 
-    %local
+  %local
       To run the cell contents in local iPython
 
-    %sync
+  %sync
       To sync a variable/output data structure of the device into iPython
       if no var name provided it stores the output into _
 
-    %logdata [-fs FS] [-tm TM] [-u U [U ...]] [-s] v [v ...]
+  %logdata [-fs FS] [-tm TM] [-u U [U ...]] [-s] v [v ...]
       To log output data of the device into iPython,
       data is stored in 'devlog'
 
@@ -260,11 +302,11 @@ are available, or to see more information about each command do:
         -u U [U ...]  Unit of variables
         -s            Silent mode
 
-    %devplot
+  %devplot
       To plot devlog data
 
-The communications interface to the micropython module is based on `upydevice
-<https://github.com/Carglglz/upydevice>`_ new classes ``SERIAL_DEVICE`` and ``WS_DEVICE``
+The communications interface to the MicroPython device is based on `upydevice
+<https://github.com/Carglglz/upydevice>`
 
 
 This is also the core library of `upydev
@@ -449,7 +491,7 @@ This allows to plot *devlog* data, just do:
 
 
 .. image:: acc-plot.png
-    :width: 40pt
+    :width: 2140pt
 
 
 Now to save the plot do:

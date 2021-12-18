@@ -1,6 +1,13 @@
 from ipykernel.kernelbase import Kernel
-import logging, sys, time, os, re
-import serial, socket, serial.tools.list_ports, select
+import logging
+import sys
+import time
+import os
+import re
+import serial
+import socket
+import serial.tools.list_ports
+import select
 from upydevice import SerialDevice, WebSocketDevice, check_device_type, AsyncBleDevice
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
@@ -16,9 +23,11 @@ try:
 except Exception as e:
     DEVSPATH = '.'
 
-logging.getLogger("bleak.backends.corebluetooth.CentralManagerDelegate").setLevel(logging.ERROR)
+logging.getLogger(
+    "bleak.backends.corebluetooth.CentralManagerDelegate").setLevel(logging.ERROR)
 logging.getLogger("bleak.backends.corebluetooth.client").setLevel(logging.ERROR)
-logging.getLogger("bleak.backends.corebluetooth.PeripheralDelegate").setLevel(logging.ERROR)
+logging.getLogger(
+    "bleak.backends.corebluetooth.PeripheralDelegate").setLevel(logging.ERROR)
 logging.getLogger('asyncio').setLevel(logging.WARNING)
 logging.getLogger('parso.python.diff').setLevel(logging.WARNING)
 logging.getLogger('parso.cache').setLevel(logging.WARNING)
@@ -34,16 +43,20 @@ serialtimeoutcount = 10
 ap_serialconnect = argparse.ArgumentParser(prog="%serialconnect", add_help=False)
 ap_serialconnect.add_argument('portname', type=str, default=0, nargs="?")
 ap_serialconnect.add_argument('baudrate', type=int, default=115200, nargs="?")
-ap_serialconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
+ap_serialconnect.add_argument(
+    "-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
 
 ap_bleconnect = argparse.ArgumentParser(prog="%bleconnect", add_help=False)
 ap_bleconnect.add_argument('bleaddress', type=str, default="", nargs="?")
 
 ap_websocketconnect = argparse.ArgumentParser(prog="%websocketconnect", add_help=False)
-ap_websocketconnect.add_argument('websocketurl', type=str, default="192.168.4.1", nargs="?")
+ap_websocketconnect.add_argument(
+    'websocketurl', type=str, default="192.168.4.1", nargs="?")
 ap_websocketconnect.add_argument("--password", type=str)
-ap_websocketconnect.add_argument("-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
-ap_websocketconnect.add_argument("-ssl", default=False, help='use WebSecureREPL if enabled', action='store_true')
+ap_websocketconnect.add_argument(
+    "-kbi", default=False, help='KeyboardInterrupt on start', action='store_true')
+ap_websocketconnect.add_argument(
+    "-ssl", default=False, help='use WebSecureREPL if enabled', action='store_true')
 
 ap_logdata = argparse.ArgumentParser(prog="%logdata", add_help=False)
 ap_logdata.add_argument('v', type=str, nargs="+", help='Name of variables')
@@ -91,10 +104,10 @@ class MicroPythonKernel(IPythonKernel):
         self.frozen_modules = {}
         self.global_execution_count = 0
         self.magic_kw = ['%disconnect', '%serialconnect', '%websocketconnect',
-                         '%bleconnect',
+                         '%bleconnect', '%connect',
                          '%rebootdevice', '%is_reachable', '%lsmagic',
                          '%meminfo', '%whoami', '%gccollect', '%local',
-                         '%sync', '%logdata', '%devplot']
+                         '%sync', '%logdata', '%devplot', '%rssi', ]
         self.block_kw = ['if ', 'else:', 'def ', 'while ', 'for ', 'elif ', ':',
                          'try:', 'except ']
 
@@ -129,16 +142,50 @@ class MicroPythonKernel(IPythonKernel):
         percentstringargs = shlex.split(percentline)
         percentcommand = percentstringargs[0]
 
+        if percentcommand == '%connect':
+            _dev_entry_point = percentstringargs[1]
+            if '@' in _dev_entry_point:
+                try:
+                    if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                        with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                            all_devs = json.loads(cfg_file.read())
+                        dev_cfg = all_devs[_dev_entry_point.replace("@", '')]
+                        dev_name = _dev_entry_point.replace("@", '')
+                        dev_address, _ = dev_cfg
+                        dev_type = check_device_type(dev_address)
+                except Exception as e:
+                    _dev = _dev_entry_point.replace("@", '')
+                    self.sres(f'Device {_dev} not configured', 31)
+                    return None
+            else:
+                try:
+                    dev_type = check_device_type(_dev_entry_point)
+                except Exception as e:
+                    self.sres('Device address not compatible', 31)
+                    self.sres(f'{e}', 31)
+                    return None
+            if dev_type == 'SerialDevice':
+                percentcommand = '%serialconnect'
+            elif dev_type == 'WebSocketDevice':
+                percentcommand = '%websocketconnect'
+            elif dev_type == 'BleDevice':
+                percentcommand = '%bleconnect'
+
         if percentcommand == ap_serialconnect.prog:
             apargs = parseap(ap_serialconnect, percentstringargs[1:])
             dev_name = None
             # Catch entry point @
-            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.portname:
-                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
-                    ws_devs = json.loads(cfg_file.read())
-                dev_cfg = ws_devs[apargs.portname.replace("@", '')]
-                dev_name = apargs.portname.replace("@", '')
-                apargs.portname, apargs.baudrate = dev_cfg
+            try:
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.portname:
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        ws_devs = json.loads(cfg_file.read())
+                    dev_cfg = ws_devs[apargs.portname.replace("@", '')]
+                    dev_name = apargs.portname.replace("@", '')
+                    apargs.portname, apargs.baudrate = dev_cfg
+            except Exception as e:
+                _dev = apargs.portname.replace("@", '')
+                self.sres(f'Device {_dev} not configured', 31)
+                return None
             try:
                 if apargs.kbi:
                     self.dev = SerialDevice(apargs.portname, baudrate=apargs.baudrate)
@@ -146,7 +193,8 @@ class MicroPythonKernel(IPythonKernel):
                 self.dev = SerialDevice(apargs.portname, baudrate=apargs.baudrate,
                                         autodetect=True, name=dev_name)
                 if self.dev.is_reachable():
-                    logger.info("Device {} connected in {}".format(self.dev.dev_platform, self.dev.serial_port))
+                    logger.info("Device {} connected in {}".format(
+                        self.dev.dev_platform, self.dev.serial_port))
                     self.sres("\n ** Serial connected **\n\n", 32)
                     self.sres(str(self.dev))
                     self.sres("\n")
@@ -158,32 +206,42 @@ class MicroPythonKernel(IPythonKernel):
                     self.dev_connected = True
                     self.dev.banner(pipe=self.sres)
                 else:
-                    self.sres('Device is not reachable.', 31)
+                    if dev_name:
+                        self.sres(f'Device {dev_name} is not reachable.', 31)
+                    else:
+                        self.sres('Device is not reachable.', 31)
             except Exception as e:
-                self.sres('Serial Port {} not available'.format(apargs.portname), 31)
+                self.sres(f'Serial Port {apargs.portname} not available', 31)
             return None
 
         if percentcommand == ap_bleconnect.prog:
             apargs = parseap(ap_bleconnect, percentstringargs[1:])
             dev_name = None
             # Catch entry point @
-            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.bleaddress:
-                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
-                    ws_devs = json.loads(cfg_file.read())
-                dev_cfg = ws_devs[apargs.bleaddress.replace("@", '')]
-                dev_name = apargs.bleaddress.replace("@", '')
-                apargs.bleaddress, _ = dev_cfg
+            try:
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.bleaddress:
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        ws_devs = json.loads(cfg_file.read())
+                    dev_cfg = ws_devs[apargs.bleaddress.replace("@", '')]
+                    dev_name = apargs.bleaddress.replace("@", '')
+                    apargs.bleaddress, _ = dev_cfg
+            except Exception as e:
+                _dev = apargs.bleaddress.replace("@", '')
+                self.sres(f'Device {_dev} not configured', 31)
+                return None
             try:
                 self.dev = AsyncBleDevice(apargs.bleaddress, name=dev_name)
                 self.dev.connect()
                 repr_info = str(self.dev)
-                logger.info("Device {} connected in @ {}".format(self.dev.dev_platform, self.dev.address))
+                logger.info(
+                    "Device {} connected in @ {}".format(self.dev.dev_platform, self.dev.address))
                 self.sres("\n ** BleREPL connected **\n", 32)
                 self.sres("\n")
                 self.sres(repr_info)
                 self.sres("\n")
                 if not self.dev.name:
-                    self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.address[:8])
+                    self.dev.name = '{}_{}'.format(
+                        self.dev.dev_platform, self.dev.address[:8])
                 if self.dev.name not in ['P8', 'PineTime']:
                     self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
                     self.frozen_modules['FM'] = self.dev.output.split()[:-6]
@@ -193,7 +251,10 @@ class MicroPythonKernel(IPythonKernel):
                 self.dev.banner(pipe=self.sres)
                 self.dev.pipe = self.sres
             except Exception as e:
-                self.sres('Device is not reachable.', 31)
+                if dev_name:
+                    self.sres(f'Device {dev_name} is not reachable.', 31)
+                else:
+                    self.sres('Device is not reachable.', 31)
 
             return None
 
@@ -201,40 +262,55 @@ class MicroPythonKernel(IPythonKernel):
             apargs = parseap(ap_websocketconnect, percentstringargs[1:])
             dev_name = None
             # Catch entry point @
-            if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.websocketurl:
-                with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
-                    ws_devs = json.loads(cfg_file.read())
-                dev_cfg = ws_devs[apargs.websocketurl.replace("@", '')]
-                dev_name = apargs.websocketurl.replace("@", '')
-                apargs.websocketurl, apargs.password = dev_cfg
+            try:
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]) and "@" in apargs.websocketurl:
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        ws_devs = json.loads(cfg_file.read())
+                    dev_cfg = ws_devs[apargs.websocketurl.replace("@", '')]
+                    dev_name = apargs.websocketurl.replace("@", '')
+                    apargs.websocketurl, apargs.password = dev_cfg
+            except Exception as e:
+                _dev = apargs.websocketurl.replace("@", '')
+                self.sres(f'Device {_dev} not configured', 31)
+                return None
+            try:
+                if apargs.websocketurl.endswith('.local'):
+                    apargs.websocketurl = socket.gethostbyname(apargs.websocketurl)
+                self.dev = WebSocketDevice(apargs.websocketurl, apargs.password,
+                                           name=dev_name)
+                if self.dev.is_reachable():
+                    self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
+                    if apargs.kbi:
+                        self.dev.kbi(silent=True)
+                        time.sleep(0.5)
+                        self.dev.flush_conn()
+                    repr_info = str(self.dev)
+                    logger.info("Device {} connected in {}:{}".format(
+                        self.dev.dev_platform, self.dev.ip, self.dev.port))
+                    self.sres("\n ** WebREPL connected **\n", 32)
+                    self.sres("\n")
+                    self.sres(repr_info)
+                    self.sres("\n")
+                    # self.sres(self.dev.response)
+                    # self.dev.wr_cmd("import sys; sys.platform", silent=True)
+                    # self.dev.dev_platform = self.dev.output
+                    if not self.dev.name:
+                        self.dev.name = '{}_{}'.format(
+                            self.dev.dev_platform, self.dev.ip.split('.')[-1])
+                    self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
+                    self.frozen_modules['FM'] = self.dev.output.split()[:-6]
+                    self.dev.wr_cmd("import os;import gc", silent=True)
+                    # self.sres(str(self.frozen_modules['FM']))
+                    self.dev_connected = True
+                    self.dev.banner(pipe=self.sres)
+                else:
+                    self.sres('Device is not reachable.', 31)
+            except Exception as e:
+                if dev_name:
+                    self.sres(f'Device {dev_name} is not reachable.', 31)
+                else:
+                    self.sres('Device is not reachable.', 31)
 
-            self.dev = WebSocketDevice(apargs.websocketurl, apargs.password,
-                                       name=dev_name)
-            if self.dev.is_reachable():
-                self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
-                if apargs.kbi:
-                    self.dev.kbi(silent=True)
-                    time.sleep(0.5)
-                    self.dev.flush_conn()
-                repr_info = str(self.dev)
-                logger.info("Device {} connected in {}:{}".format(self.dev.dev_platform, self.dev.ip, self.dev.port))
-                self.sres("\n ** WebREPL connected **\n", 32)
-                self.sres("\n")
-                self.sres(repr_info)
-                self.sres("\n")
-                # self.sres(self.dev.response)
-                # self.dev.wr_cmd("import sys; sys.platform", silent=True)
-                # self.dev.dev_platform = self.dev.output
-                if not self.dev.name:
-                    self.dev.name = '{}_{}'.format(self.dev.dev_platform, self.dev.ip.split('.')[-1])
-                self.dev.wr_cmd("help('modules')", silent=True, long_string=True)
-                self.frozen_modules['FM'] = self.dev.output.split()[:-6]
-                self.dev.wr_cmd("import os;import gc", silent=True)
-                # self.sres(str(self.frozen_modules['FM']))
-                self.dev_connected = True
-                self.dev.banner(pipe=self.sres)
-            else:
-                self.sres('Device is not reachable.', 31)
             return None
 
         if percentcommand == "%lsmagic":
@@ -242,9 +318,12 @@ class MicroPythonKernel(IPythonKernel):
             self.sres("%lsmagic\n    list magic commands\n\n")
             # self.sres("%readbytes\n    does serial.read_all()\n\n")
             self.sres("%rebootdevice\n    reboots device\n\n")
-            self.sres("%is_reachable\n    Test if device is reachable (must be connected first)\n\n")
+            self.sres(
+                "%is_reachable\n    Test if device is reachable (must be connected first)\n\n")
             # self.sres(re.sub("usage: ", "", ap_sendtofile.format_usage()))
             # self.sres("    send cell contents or file from disk to device file\n\n")
+            self.sres(
+                "%connect\n    connects to a device based on addres or configuration\n\n")
             self.sres(re.sub("usage: ", "", ap_serialconnect.format_usage()))
             self.sres("    connects to a device over USB, default baudrate is 115200\n\n")
             # self.sres(re.sub("usage: ", "", ap_socketconnect.format_usage()))
@@ -252,30 +331,37 @@ class MicroPythonKernel(IPythonKernel):
             # self.sres("%suppressendcode\n    doesn't send x04 or wait to read after sending the cell\n")
             # self.sres("  (assists for debugging using %writebytes and %readbytes)\n\n")
             self.sres(re.sub("usage: ", "", ap_websocketconnect.format_usage()))
-            self.sres("    connects to the WebREPL over wifi (WebREPL daemon must be running)\n")
-            self.sres("    websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)\n\n")
+            self.sres(
+                "    connects to the WebREPL over wifi (WebREPL daemon must be running)\n")
+            self.sres(
+                "    websocketurl defaults to 192.168.4.1 (uri -> ws://192.168.4.1:8266)\n\n")
             # self.sres(re.sub("usage: ", "", ap_writebytes.format_usage()))
             # self.sres("    does serial.write() of the python quoted string given\n\n")
             self.sres(re.sub("usage: ", "", ap_bleconnect.format_usage()))
-            self.sres("    connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)\n\n")
+            self.sres(
+                "    connects to the BleREPL over Bluetooth Low Energy(BleREPL must be running)\n\n")
 
             self.sres("%meminfo\n    Shows RAM size/used/free/use% info\n\n")
             self.sres("%whoami\n    Shows Device name, port, id, and system info\n\n")
-            self.sres("%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
+            self.sres("%rssi\n    Shows Device RSSI if wireless\n\n")
+            self.sres(
+                "%gccollect\n    To use the garbage collector and free some RAM if possible\n\n")
             self.sres("%local\n    To run the cell contents in local iPython\n\n")
             self.sres("%sync\n    To sync a variable/output data structure of the device into iPython \n    if no var name provided it stores the output into _\n\n")
             self.sres(re.sub("usage: ", "", ap_logdata.format_usage()))
-            self.sres("    To log output data of the device into iPython, \n    data is stored in 'devlog'\n\n")
+            self.sres(
+                "    To log output data of the device into iPython, \n    data is stored in 'devlog'\n\n")
             self.sres("   {}\n   {}\n".format(ap_logdata.format_help().split('\n\n')[1].replace('\n', '\n    '),
-                                         ap_logdata.format_help().split('\n\n')[2].replace('\n', '\n    ')))
+                                              ap_logdata.format_help().split('\n\n')[2].replace('\n', '\n    ')))
             self.sres("%devplot\n    To plot devlog data\n\n")
             return None
 
         if percentcommand == "%disconnect":
-            self.dev.disconnect()
-            self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
-            self.dev_connected = False
-            logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
+            if self.dev.connected:
+                self.dev.disconnect()
+                self.sres('Device {} disconnected.'.format(self.dev.dev_platform), 31)
+                self.dev_connected = False
+                logger.info('Device {} disconnected.'.format(self.dev.dev_platform))
             return None
 
         if percentcommand == "%rebootdevice":
@@ -297,11 +383,12 @@ class MicroPythonKernel(IPythonKernel):
         if percentcommand == ap_logdata.prog:
             # self.dev.close_wconn()
             apargs = parseap(ap_logdata, percentstringargs[1:])
-            self.sres('vars:{}, fs:{} Hz, tm:{} ms, u: {}, silent: {}\n'.format(apargs.v, apargs.fs, apargs.tm, apargs.u, apargs.s))
+            self.sres('vars:{}, fs:{} Hz, tm:{} ms, u: {}, silent: {}\n'.format(
+                apargs.v, apargs.fs, apargs.tm, apargs.u, apargs.s))
             self.sres("{}\n".format('-'*30))
             self.datalog_args = {'vars': apargs.v, 'fs': apargs.fs,
                                  'tm': apargs.tm, 'u': apargs.u,
-                                 'silent':apargs.s}
+                                 'silent': apargs.s}
             raise self.logdataLocalCell
             # return None
 
@@ -318,6 +405,16 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres("Device is NOT reachable!\n", 31)
             return None
 
+        if percentcommand == "%rssi":
+            # self.dev.close_wconn()
+            if hasattr(self.dev, 'get_RSSI') and self.dev.connected:
+                resp = self.dev.get_RSSI()
+            else:
+                resp = 0
+            if resp:
+                self.sres(f"RSSI: {resp} dBm \n")
+            return None
+
         if percentcommand == '%meminfo':
             RAM = self.send_custom_sh_cmd(
                 'from micropython import mem_info;mem_info()', long_string=True)
@@ -326,9 +423,9 @@ class MicroPythonKernel(IPythonKernel):
             mem = {elem.strip().split(':')[0]: int(elem.strip().split(':')[
                               1]) for elem in mem_info[4:].split(',')}
             self.sres("{0:12}{1:^12}{2:^12}{3:^12}{4:^12}\n".format(*['Memmory',
-                                                                'Size', 'Used',
-                                                                'Avail',
-                                                                'Use%']))
+                                                                      'Size', 'Used',
+                                                                      'Avail',
+                                                                      'Use%']))
             total_mem = mem['total']/1024
             used_mem = mem['used']/1024
             free_mem = mem['free']/1024
@@ -337,8 +434,8 @@ class MicroPythonKernel(IPythonKernel):
             free_mem_s = "{:.3f} KB".format(free_mem)
 
             self.sres('{0:12}{1:^12}{2:^12}{3:^12}{4:>8}\n'.format('RAM', total_mem_s,
-                                                              used_mem_s, free_mem_s,
-                                                              "{:.1f} %".format((used_mem/total_mem)*100)))
+                                                                   used_mem_s, free_mem_s,
+                                                                   "{:.1f} %".format((used_mem/total_mem)*100)))
             return None
         if percentcommand == '%whoami':
             uid = self.send_custom_sh_cmd("from machine import unique_id; unique_id()")
@@ -347,11 +444,14 @@ class MicroPythonKernel(IPythonKernel):
             except Exception as e:
                 unique_id = uid
             if self.dev.dev_class == 'SerialDevice':
-                self.sres('DEVICE: {}, SERIAL PORT: {} , BAUDRATE: {},  ID: {}\n'.format(self.dev.name, self.dev.serial_port, self.dev.baudrate, unique_id))
+                self.sres('DEVICE: {}, SERIAL PORT: {} , BAUDRATE: {},  ID: {}\n'.format(
+                    self.dev.name, self.dev.serial_port, self.dev.baudrate, unique_id))
             elif self.dev.dev_class == 'BleDevice':
-                self.sres('DEVICE: {}, UUID: {}, ID: {}\n'.format(self.dev.name, self.dev.address, unique_id))
+                self.sres('DEVICE: {}, UUID: {}, ID: {}\n'.format(
+                    self.dev.name, self.dev.address, unique_id))
             else:
-                self.sres('DEVICE: {}, IP: {} , PORT: {},  ID: {}\n'.format(self.dev.name, self.dev.ip, self.dev.port, unique_id))
+                self.sres('DEVICE: {}, IP: {} , PORT: {},  ID: {}\n'.format(
+                    self.dev.name, self.dev.ip, self.dev.port, unique_id))
             sysinfo = self.send_custom_sh_cmd('import os;os.uname()')
             dev_info = sysinfo.split("'")
             self.sres('SYSTEM NAME: {}\n'.format(dev_info[1]))
@@ -422,7 +522,8 @@ class MicroPythonKernel(IPythonKernel):
         # extract any %-commands we have here at the start (or ending?)
         mpercentline = re.match("\s*(%.*)", cellcontents)
         if mpercentline:
-            cellcontents = self.interpretpercentline(mpercentline.group(1), cellcontents)
+            cellcontents = self.interpretpercentline(
+                mpercentline.group(1), cellcontents)
             if cellcontents is None:
                 return
 
@@ -449,7 +550,8 @@ class MicroPythonKernel(IPythonKernel):
                 stream_content = {'name': std, 'text': output}
                 self.send_response(self.iopub_socket, 'stream', stream_content)
             else:
-                output_content = {'execution_count':self.global_execution_count, 'data': {"text/plain": output}, 'metadata' : {}}
+                output_content = {'execution_count': self.global_execution_count, 'data': {
+                    "text/plain": output}, 'metadata': {}}
                 self.send_response(self.iopub_socket, 'execute_result', output_content)
 
     def do_execute(self, code, silent, store_history=True, user_expressions=None, allow_stdin=False):
@@ -498,11 +600,13 @@ class MicroPythonKernel(IPythonKernel):
             # self.dev.wr_cmd(code, silent=True)
             self.dev.paste_buff(code)
             if not self.datalog_args['silent']:
-                self.dev.wr_cmd('\x04', follow=True, pipe=self.sres, multiline=True, dlog=True)
+                self.dev.wr_cmd('\x04', follow=True, pipe=self.sres,
+                                multiline=True, dlog=True)
                 # self.dev.wr_cmd('\x04', silent=True, follow=True, pipe=None, multiline=True, dlog=True)
             else:
                 # self.sres("{}\n".format(self.datalog_args['silent']))
-                self.dev.wr_cmd('\x04', silent=True, follow=True, pipe=None, multiline=True, dlog=True)
+                self.dev.wr_cmd('\x04', silent=True, follow=True,
+                                pipe=None, multiline=True, dlog=True)
             self.dev.get_datalog(dvars=self.datalog_args['vars'], fs=self.datalog_args['fs'],
                                  time_out=self.datalog_args['tm'], units=self.datalog_args['u'])
 
@@ -526,9 +630,9 @@ class MicroPythonKernel(IPythonKernel):
                     plt.legend(loc=1)
                 plt.show()"""
                 show_plot = super(MicroPythonKernel, self).do_execute(code=importmatplotlib, silent=silent,
-                                                                 store_history=store_history,
-                                                                 user_expressions=user_expressions,
-                                                                 allow_stdin=allow_stdin)
+                                                                      store_history=store_history,
+                                                                      user_expressions=user_expressions,
+                                                                      allow_stdin=allow_stdin)
                 return super(MicroPythonKernel, self).do_execute(code=code, silent=silent,
                                                                  store_history=store_history,
                                                                  user_expressions=user_expressions,
@@ -550,7 +654,8 @@ class MicroPythonKernel(IPythonKernel):
             return {'status': 'abort', 'execution_count': self.global_execution_count}
 
         # everything already gone out with send_response(), but could detect errors (text between the two \x04s
-        outp =  [{"data": {"text/plain": ["[1, 2, 3]"]},"execution_count": 6, "metadata": {},"output_type": "execute_result"}]
+        outp = [{"data": {"text/plain": ["[1, 2, 3]"]}, "execution_count": 6,
+                 "metadata": {}, "output_type": "execute_result"}]
         return {'status': 'ok', 'execution_count': self.global_execution_count, 'payload': [], 'user_expressions': {}}
 
     def do_complete(self, code, cursor_pos):
@@ -559,13 +664,30 @@ class MicroPythonKernel(IPythonKernel):
         glb = False
         import_cmd = False
         buff_text_frst_cmd = code.split(' ')[0]
-        if buff_text_frst_cmd.startswith('%') and '%sync' not in buff_text_frst_cmd:  # magic keyword
+        if len(code.split(' ')) > 1:
+            _buff_sec_cmd = code.split(' ')[1]
+        else:
+            _buff_sec_cmd = None
+        # magic keyword
+        if buff_text_frst_cmd.startswith('%') and '%sync' not in buff_text_frst_cmd:
             if cursor_pos is None:
                 cursor_pos = len(code)
             # line, offset = line_at_cursor(code, cursor_pos)
             # line_cursor = cursor_pos - offset
             result = [
                 val for val in self.magic_kw if val.startswith(buff_text_frst_cmd)]
+            if buff_text_frst_cmd == '%connect':
+                result = []
+                if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
+                    with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
+                        s_devs = json.loads(cfg_file.read())
+                    if _buff_sec_cmd:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        s_result = ["@{}".format(key) for key in s_devs.keys()]
+                    result = s_result + result
+                buff_text_frst_cmd = code.split(' ')[1]
             if buff_text_frst_cmd == '%serialconnect':
                 ls_cmd_str = "/dev/tty.*"
                 alt_port = "/dev/ttyUSB"
@@ -576,8 +698,13 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         s_devs = json.loads(cfg_file.read())
-                    s_result = ["@{}".format(key) for key in s_devs.keys() if
-                                check_device_type(s_devs[key][0]) == 'SerialDevice']
+                    if _buff_sec_cmd:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    check_device_type(s_devs[key][0]) == 'SerialDevice'
+                                    and key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        s_result = ["@{}".format(key) for key in s_devs.keys() if
+                                    check_device_type(s_devs[key][0]) == 'SerialDevice']
                     result = s_result + result
                 buff_text_frst_cmd = code.split(' ')[1]
 
@@ -586,8 +713,14 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         ws_devs = json.loads(cfg_file.read())
-                    result = ["@{}".format(key) for key in ws_devs.keys()
-                              if check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
+                    if _buff_sec_cmd:
+                        result = ["@{}".format(key) for key in ws_devs.keys() if
+                                  check_device_type(
+                                      ws_devs[key][0]) == 'WebSocketDevice'
+                                  and key.startswith(_buff_sec_cmd.replace("@", ''))]
+                    else:
+                        result = ["@{}".format(key) for key in ws_devs.keys() if
+                                  check_device_type(ws_devs[key][0]) == 'WebSocketDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd == '%bleconnect':
@@ -595,8 +728,14 @@ class MicroPythonKernel(IPythonKernel):
                 if 'UPY_G.config' in os.listdir(DEVSPATH[0]):
                     with open(DEVSPATH[0]+'/UPY_G.config', 'r') as cfg_file:
                         ws_devs = json.loads(cfg_file.read())
-                    result = ["@{}".format(key) for key in ws_devs.keys()
-                              if check_device_type(ws_devs[key][0]) == 'BleDevice']
+                    if _buff_sec_cmd:
+                        result = ["@{}".format(key) for key in ws_devs.keys()
+                                  if check_device_type(ws_devs[key][0]) == 'BleDevice'
+                                  and key.startswith(_buff_sec_cmd.replace("@", ''))]
+
+                    else:
+                        result = ["@{}".format(key) for key in ws_devs.keys()
+                                  if check_device_type(ws_devs[key][0]) == 'BleDevice']
                     buff_text_frst_cmd = code.split(' ')[1]
 
             if buff_text_frst_cmd.startswith('%local'):
@@ -612,11 +751,11 @@ class MicroPythonKernel(IPythonKernel):
 
             else:
 
-                return {'matches' : result,
-                        'cursor_end' : cursor_pos,
-                        'cursor_start' : cursor_pos - len(buff_text_frst_cmd),
-                        'metadata' : {},
-                        'status' : 'ok'}
+                return {'matches': result,
+                        'cursor_end': cursor_pos,
+                        'cursor_start': cursor_pos - len(buff_text_frst_cmd),
+                        'metadata': {},
+                        'status': 'ok'}
 
         else:
             try:
@@ -635,7 +774,8 @@ class MicroPythonKernel(IPythonKernel):
                         root_text = '.'.join(buff_text.split('.')[:-1])
                         rest = buff_text.split('.')[-1]
                         if rest != '':
-                            self.dev.wr_cmd("[val for val in dir({}) if val.startswith('{}')]".format(root_text, rest), silent=True)
+                            self.dev.wr_cmd("[val for val in dir({}) if val.startswith('{}')]".format(
+                                root_text, rest), silent=True)
                             self.dev.flush_conn()
 
                         else:
@@ -654,26 +794,33 @@ class MicroPythonKernel(IPythonKernel):
                         glb = True
                         cmd_ls_glb = 'dir()'
                         if buff_text != '':
-                            cmd_ls_glb = "[val for val in dir() if val.startswith('{}')]".format(buff_text)
+                            cmd_ls_glb = "[val for val in dir() if val.startswith('{}')]".format(
+                                buff_text)
                         if import_cmd:
                             fbuff_text = code.split()
                             if 'import' in fbuff_text and 'from' in fbuff_text and len(fbuff_text) >= 3:
                                 if fbuff_text[1] not in self.frozen_modules['FM']:
                                     if len(fbuff_text) == 3:
-                                        cmd_ls_glb = "import {0};dir({0})".format(fbuff_text[1])
+                                        cmd_ls_glb = "import {0};dir({0})".format(
+                                            fbuff_text[1])
                                     if len(fbuff_text) == 4:
-                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(fbuff_text[1], fbuff_text[3])
+                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
+                                            fbuff_text[1], fbuff_text[3])
                                 else:
                                     if len(fbuff_text) == 3:
-                                        cmd_ls_glb = "import {0};dir({0})".format(fbuff_text[1])
+                                        cmd_ls_glb = "import {0};dir({0})".format(
+                                            fbuff_text[1])
                                     if len(fbuff_text) == 4:
-                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(fbuff_text[1], fbuff_text[3])
+                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
+                                            fbuff_text[1], fbuff_text[3])
                             else:
                                 cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp]"
                                 self.frozen_modules['SUB'] = self.frozen_modules['FM']
                                 if buff_text != '':
-                                    cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp and scp.startswith('{}')]".format(buff_text)
-                                    self.frozen_modules['SUB'] = [mod for mod in self.frozen_modules['FM'] if mod.startswith(buff_text)]
+                                    cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp and scp.startswith('{}')]".format(
+                                        buff_text)
+                                    self.frozen_modules['SUB'] = [
+                                        mod for mod in self.frozen_modules['FM'] if mod.startswith(buff_text)]
 
                         try:
                             self.dev.wr_cmd(cmd_ls_glb+';gc.collect()',
@@ -688,7 +835,8 @@ class MicroPythonKernel(IPythonKernel):
                     root_text = buff_text.split('.')[0]
                     rest = buff_text.split('.')[1]
                     try:
-                        self.dev.wr_cmd('dir({});gc.collect()'.format(root_text), silent=True)
+                        self.dev.wr_cmd('dir({});gc.collect()'.format(
+                            root_text), silent=True)
                         self.dev.flush_conn()
                     except KeyboardInterrupt:
                         time.sleep(0.2)
@@ -732,8 +880,8 @@ class MicroPythonKernel(IPythonKernel):
 
             offset = cursor_pos - len(rest)
 
-            return {'matches' : self.dev.output,
-                    'cursor_end' : cursor_pos,
-                    'cursor_start' : offset,
-                    'metadata' : {},
-                    'status' : 'ok'}
+            return {'matches': self.dev.output,
+                    'cursor_end': cursor_pos,
+                    'cursor_start': offset,
+                    'metadata': {},
+                    'status': 'ok'}
