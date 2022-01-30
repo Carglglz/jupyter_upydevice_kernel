@@ -8,7 +8,7 @@ import serial
 import socket
 import serial.tools.list_ports
 import select
-from upydevice import SerialDevice, WebSocketDevice, check_device_type, AsyncBleDevice
+from upydevice import SerialDevice, WebSocketDevice, check_device_type
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
 import argparse
@@ -230,6 +230,7 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres(f'Device {_dev} not configured', 31)
                 return None
             try:
+                from upydevice.bledevice import AsyncBleDevice
                 self.dev = AsyncBleDevice(apargs.bleaddress, name=dev_name)
                 self.dev.connect()
                 repr_info = str(self.dev)
@@ -274,10 +275,11 @@ class MicroPythonKernel(IPythonKernel):
                 self.sres(f'Device {_dev} not configured', 31)
                 return None
             try:
-                if apargs.websocketurl.endswith('.local'):
-                    apargs.websocketurl = socket.gethostbyname(apargs.websocketurl)
+                # if apargs.websocketurl.endswith('.local'):
+                #     apargs.websocketurl = socket.gethostbyname(apargs.websocketurl)
                 self.dev = WebSocketDevice(apargs.websocketurl, apargs.password,
                                            name=dev_name)
+
                 if self.dev.is_reachable():
                     self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
                     if apargs.kbi:
@@ -287,7 +289,10 @@ class MicroPythonKernel(IPythonKernel):
                     repr_info = str(self.dev)
                     logger.info("Device {} connected in {}:{}".format(
                         self.dev.dev_platform, self.dev.ip, self.dev.port))
-                    self.sres("\n ** WebREPL connected **\n", 32)
+                    if self.dev._uriprotocol == 'wss':
+                        self.sres("\n ** WebSecureREPL connected **\n", 32)
+                    else:
+                        self.sres("\n ** WebREPL connected **\n", 32)
                     self.sres("\n")
                     self.sres(repr_info)
                     self.sres("\n")
@@ -306,6 +311,7 @@ class MicroPythonKernel(IPythonKernel):
                 else:
                     self.sres('Device is not reachable.', 31)
             except Exception as e:
+                # print(e)
                 if dev_name:
                     self.sres(f'Device {dev_name} is not reachable.', 31)
                 else:
