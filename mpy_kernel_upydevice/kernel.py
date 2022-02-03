@@ -766,128 +766,132 @@ class MicroPythonKernel(IPythonKernel):
         else:
             try:
                 # catch last line before cursor_pos
-                code = code[:cursor_pos].splitlines()[-1]
-                buff_text_frst_cmd = code.split(' ')[0]
-                if buff_text_frst_cmd == 'import' or buff_text_frst_cmd == 'from':
-                    import_cmd = True
-                if ').' not in code:
-                    buff_text = code.replace('=', ' ').replace('(', ' ').split(' ')[-1]
-                else:
-                    buff_text = code.replace('=', ' ').split(' ')[-1]
-                if isinstance(buff_text, str):
-                    if '.' in buff_text:
+                if self.dev:
+                    code = code[:cursor_pos].splitlines()[-1]
+                    buff_text_frst_cmd = code.split(' ')[0]
+                    if buff_text_frst_cmd == 'import' or buff_text_frst_cmd == 'from':
+                        import_cmd = True
+                    if ').' not in code:
+                        buff_text = code.replace('=', ' ').replace(
+                            '(', ' ').split(' ')[-1]
+                    else:
+                        buff_text = code.replace('=', ' ').split(' ')[-1]
+                    if isinstance(buff_text, str):
+                        if '.' in buff_text:
 
-                        root_text = '.'.join(buff_text.split('.')[:-1])
-                        rest = buff_text.split('.')[-1]
-                        if rest != '':
-                            self.dev.wr_cmd("[val for val in dir({}) if val.startswith('{}')]".format(
-                                root_text, rest), silent=True)
-                            self.dev.flush_conn()
+                            root_text = '.'.join(buff_text.split('.')[:-1])
+                            rest = buff_text.split('.')[-1]
+                            if rest != '':
+                                self.dev.wr_cmd("[val for val in dir({}) if val.startswith('{}')]".format(
+                                    root_text, rest), silent=True)
+                                self.dev.flush_conn()
+
+                            else:
+                                try:
+                                    self.dev.wr_cmd('dir({});gc.collect()'.format(root_text),
+                                                    silent=True)
+                                    self.dev.flush_conn()
+                                except KeyboardInterrupt:
+                                    time.sleep(0.2)
+                                    self.dev.kbi(silent=True)
+
+                                self.dev.flush_conn()
 
                         else:
+                            rest = ''
+                            glb = True
+                            cmd_ls_glb = 'dir()'
+                            if buff_text != '':
+                                cmd_ls_glb = "[val for val in dir() if val.startswith('{}')]".format(
+                                    buff_text)
+                            if import_cmd:
+                                fbuff_text = code.split()
+                                if 'import' in fbuff_text and 'from' in fbuff_text and len(fbuff_text) >= 3:
+                                    if fbuff_text[1] not in self.frozen_modules['FM']:
+                                        if len(fbuff_text) == 3:
+                                            cmd_ls_glb = "import {0};dir({0})".format(
+                                                fbuff_text[1])
+                                        if len(fbuff_text) == 4:
+                                            cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
+                                                fbuff_text[1], fbuff_text[3])
+                                    else:
+                                        if len(fbuff_text) == 3:
+                                            cmd_ls_glb = "import {0};dir({0})".format(
+                                                fbuff_text[1])
+                                        if len(fbuff_text) == 4:
+                                            cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
+                                                fbuff_text[1], fbuff_text[3])
+                                else:
+                                    cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp]"
+                                    self.frozen_modules['SUB'] = self.frozen_modules['FM']
+                                    if buff_text != '':
+                                        cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp and scp.startswith('{}')]".format(
+                                            buff_text)
+                                        self.frozen_modules['SUB'] = [
+                                            mod for mod in self.frozen_modules['FM'] if mod.startswith(buff_text)]
+
                             try:
-                                self.dev.wr_cmd('dir({});gc.collect()'.format(root_text),
+                                self.dev.wr_cmd(cmd_ls_glb+';gc.collect()',
                                                 silent=True)
                                 self.dev.flush_conn()
                             except KeyboardInterrupt:
                                 time.sleep(0.2)
                                 self.dev.kbi(silent=True)
-
                             self.dev.flush_conn()
 
                     else:
-                        rest = ''
-                        glb = True
-                        cmd_ls_glb = 'dir()'
-                        if buff_text != '':
-                            cmd_ls_glb = "[val for val in dir() if val.startswith('{}')]".format(
-                                buff_text)
-                        if import_cmd:
-                            fbuff_text = code.split()
-                            if 'import' in fbuff_text and 'from' in fbuff_text and len(fbuff_text) >= 3:
-                                if fbuff_text[1] not in self.frozen_modules['FM']:
-                                    if len(fbuff_text) == 3:
-                                        cmd_ls_glb = "import {0};dir({0})".format(
-                                            fbuff_text[1])
-                                    if len(fbuff_text) == 4:
-                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
-                                            fbuff_text[1], fbuff_text[3])
-                                else:
-                                    if len(fbuff_text) == 3:
-                                        cmd_ls_glb = "import {0};dir({0})".format(
-                                            fbuff_text[1])
-                                    if len(fbuff_text) == 4:
-                                        cmd_ls_glb = "import {0};[val for val in dir({0}) if val.startswith('{1}')]".format(
-                                            fbuff_text[1], fbuff_text[3])
-                            else:
-                                cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp]"
-                                self.frozen_modules['SUB'] = self.frozen_modules['FM']
-                                if buff_text != '':
-                                    cmd_ls_glb = "[scp.split('.')[0] for scp in os.listdir()+os.listdir('./lib') if '.py' in scp and scp.startswith('{}')]".format(
-                                        buff_text)
-                                    self.frozen_modules['SUB'] = [
-                                        mod for mod in self.frozen_modules['FM'] if mod.startswith(buff_text)]
-
+                        root_text = buff_text.split('.')[0]
+                        rest = buff_text.split('.')[1]
                         try:
-                            self.dev.wr_cmd(cmd_ls_glb+';gc.collect()',
-                                            silent=True)
+                            self.dev.wr_cmd('dir({});gc.collect()'.format(
+                                root_text), silent=True)
                             self.dev.flush_conn()
                         except KeyboardInterrupt:
                             time.sleep(0.2)
                             self.dev.kbi(silent=True)
                         self.dev.flush_conn()
-
-                else:
-                    root_text = buff_text.split('.')[0]
-                    rest = buff_text.split('.')[1]
-                    try:
-                        self.dev.wr_cmd('dir({});gc.collect()'.format(
-                            root_text), silent=True)
-                        self.dev.flush_conn()
-                    except KeyboardInterrupt:
-                        time.sleep(0.2)
-                        self.dev.kbi(silent=True)
-                    self.dev.flush_conn()
-            except Exception as e:
+            except Exception:
                 pass
-            if glb:
-                kw_line_buff = code.split()
-                if len(kw_line_buff) > 0 and len(kw_line_buff) <= 2:
-                    if 'import' == kw_line_buff[0] or 'from' == kw_line_buff[0]:
-                        self.dev.output = self.dev.output + self.frozen_modules['SUB']
-            txt = []
-            if rest != '':  # print attributes
-                result = [
-                    val for val in self.dev.output if val.startswith(rest)]
-                if len(result) > 1:
-                    comm_part = os.path.commonprefix(result)
-                    if comm_part == rest:
-                        # txt = comm_part[len(rest):]
-                        pass
+            if self.dev:
+                if glb:
+                    kw_line_buff = code.split()
+                    if len(kw_line_buff) > 0 and len(kw_line_buff) <= 2:
+                        if 'import' == kw_line_buff[0] or 'from' == kw_line_buff[0]:
+                            self.dev.output = self.dev.output + \
+                                self.frozen_modules['SUB']
+                txt = []
+                if rest != '':  # print attributes
+                    result = [
+                        val for val in self.dev.output if val.startswith(rest)]
+                    if len(result) > 1:
+                        comm_part = os.path.commonprefix(result)
+                        if comm_part == rest:
+                            # txt = comm_part[len(rest):]
+                            pass
+                        else:
+                            txt = comm_part[len(rest):]
                     else:
-                        txt = comm_part[len(rest):]
-                else:
-                    try:
-                        txt = result[0][len(rest):]
-                    except Exception as e:
-                        pass
-            if glb:
-                rest = buff_text
+                        try:
+                            txt = result[0][len(rest):]
+                        except Exception as e:
+                            pass
+                if glb:
+                    rest = buff_text
 
-            if cursor_pos is None:
-                cursor_pos = len(code)
-            # line, offset = line_at_cursor(code, cursor_pos)
-            # line_cursor = cursor_pos - offset
-            try:
-                if self.dev._traceback.decode() in self.dev.output:
+                if cursor_pos is None:
+                    cursor_pos = len(code)
+                # line, offset = line_at_cursor(code, cursor_pos)
+                # line_cursor = cursor_pos - offset
+                try:
+                    if self.dev._traceback.decode() in self.dev.output:
+                        self.dev.output = []
+                except TypeError:
                     self.dev.output = []
-            except TypeError:
-                self.dev.output = []
 
-            offset = cursor_pos - len(rest)
+                offset = cursor_pos - len(rest)
 
-            return {'matches': self.dev.output,
-                    'cursor_end': cursor_pos,
-                    'cursor_start': offset,
-                    'metadata': {},
-                    'status': 'ok'}
+                return {'matches': self.dev.output,
+                        'cursor_end': cursor_pos,
+                        'cursor_start': offset,
+                        'metadata': {},
+                        'status': 'ok'}
