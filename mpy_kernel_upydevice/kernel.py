@@ -8,7 +8,7 @@ import serial
 import socket
 import serial.tools.list_ports
 import select
-from upydevice import SerialDevice, WebSocketDevice, check_device_type
+from upydevice import SerialDevice, WebSocketDevice, check_device_type, DeviceNotFound
 from ipykernel.ipkernel import IPythonKernel
 # from upydevice import uparser_dec
 import argparse
@@ -210,7 +210,17 @@ class MicroPythonKernel(IPythonKernel):
                         self.sres(f'Device {dev_name} is not reachable.', 31)
                     else:
                         self.sres('Device is not reachable.', 31)
-            except Exception as e:
+            except DeviceNotFound:
+                if dev_name:
+                    self.sres(f'Device {dev_name}'
+                              f' is not reachable.', 31)
+                    self.sres(f'[DeviceNotFound]:\nSerialDevice @ {apargs.portname}'
+                              f' is not reachable.')
+                else:
+                    self.sres('Device is not reachable.', 31)
+                    self.sres(f'[DeviceNotFound]:\nSerialDevice @ {apargs.portname}'
+                              f' is not reachable.')
+            except Exception:
                 self.sres(f'Serial Port {apargs.portname} not available', 31)
             return None
 
@@ -235,7 +245,8 @@ class MicroPythonKernel(IPythonKernel):
                 self.dev.connect()
                 repr_info = str(self.dev)
                 logger.info(
-                    "Device {} connected in @ {}".format(self.dev.dev_platform, self.dev.address))
+                    "Device {} connected in @ {}".format(self.dev.dev_platform,
+                                                         self.dev.address))
                 self.sres("\n ** BleREPL connected **\n", 32)
                 self.sres("\n")
                 self.sres(repr_info)
@@ -251,6 +262,16 @@ class MicroPythonKernel(IPythonKernel):
                 self.dev_connected = True
                 self.dev.banner(pipe=self.sres)
                 self.dev.pipe = self.sres
+            except DeviceNotFound:
+                if dev_name:
+                    self.sres(f'Device {dev_name}'
+                              f' is not reachable.', 31)
+                    self.sres(f'[DeviceNotFound]:\nBleDevice @ {apargs.bleaddress}'
+                              f' is not reachable.')
+                else:
+                    self.sres('Device is not reachable.', 31)
+                    self.sres(f'[DeviceNotFound]:\nBleDevice @ {apargs.bleaddress}'
+                              f' is not reachable.')
             except Exception as e:
                 if dev_name:
                     self.sres(f'Device {dev_name} is not reachable.', 31)
@@ -282,6 +303,8 @@ class MicroPythonKernel(IPythonKernel):
 
                 if self.dev.is_reachable():
                     self.dev.open_wconn(ssl=apargs.ssl, auth=True, capath=DEVSPATH[0])
+                    if not self.dev.connected:
+                        raise DeviceNotFound
                     if apargs.kbi:
                         self.dev.kbi(silent=True)
                         time.sleep(0.5)
@@ -310,7 +333,13 @@ class MicroPythonKernel(IPythonKernel):
                     self.dev.banner(pipe=self.sres)
                 else:
                     self.sres('Device is not reachable.', 31)
-            except Exception as e:
+            except DeviceNotFound:
+                if dev_name:
+                    self.sres(f'Device {dev_name} is not reachable.', 31)
+                else:
+                    self.sres('Device is not reachable.', 31)
+
+            except Exception:
                 # print(e)
                 if dev_name:
                     self.sres(f'Device {dev_name} is not reachable.', 31)
