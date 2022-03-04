@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.7] [Github repo]
+## [0.0.8] [Github repo]
+## [0.0.7] - 2022-03-04
+### Fix
+- autocompletion crash if no device connected
+- debug info if device is not reachable
 ## [0.0.6] - 2021-12-18
 ### Added
 - `%connect` magic command to connect to a device based on device type
